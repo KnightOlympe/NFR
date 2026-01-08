@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Visualisateur de Saison - Football Manager Custom</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #f3f5fa;
+      color: #222;
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 1050px;
+      margin: 35px auto;
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 4px 16px #0002;
+      padding: 32px 24px 24px 24px;
+    }
+    h1, h2, h3 {
+      text-align: center;
+      margin-bottom: 10px;
+      letter-spacing: 1px;
+      color: #1c3a72;
+    }
+    label {
+      font-size: 1em;
+      margin-right: 16px;
+    }
+    select, input[type="file"] {
+      background: #f3f5fa;
+      color: #1a253a;
+      border: 1px solid #c8d3e3;
+      border-radius: 4px;
+      padding: 5px 9px;
+      margin: 2px 0 12px 0;
+      font-size: 1em;
+    }
+    .row {
+      display: flex;
+      gap: 30px;
+      flex-wrap: wrap;
+      margin: 28px 0 0 0;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+    /* CLASSEMENT TABLE : couleurs restaurées */
+    .classement-table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 0 auto 18px auto;
+      font-size: 1.10em;
+      min-width: 430px;
+      background: #f6f9fe;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px #0001;
+    }
+    .classement-table th, .classement-table td {
+      padding: 9px 8px;
+      text-align: center;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .classement-table th {
+      background: #e5ecfa;
+      color: #1a253a;
+      font-weight: 700;
+      font-size: 1.04em;
+      letter-spacing: 0.03em;
+    }
+    .classement-table tr {
+      transition: background 0.13s;
+    }
+    .classement-table tr.qualif-podium1 td { background: #e3f2fd !important;}
+    .classement-table tr.qualif-podium2 td { background: #CEEBFB !important;}
+    .classement-table tr.qualif-podium3 td { background: #97DEFF !important;}
+    .classement-table tr.qualif-v1 td { background: #FFF052 !important;}
+    .classement-table tr.qualif-v2 td { background: #FFFF75 !important;}
+
+    .classement-table tr.champion td { background: #e7fbe8 !important; font-weight: bold;}
+    .classement-table tr.qualif-vainqueur td { background: #e7fbe8 !important;}
+    .classement-table tr.qualif-podium td { background: #e3f2fd !important;}
+    .classement-table tr.qualif-c3 td { background: #fef8e6 !important;}
+    .classement-table tr.qualif-barrage td { background: #fdf2e7 !important;}
+    .classement-table tr.qualif-demi-barrage td { background: #fbf1ff !important;}
+    .classement-table tr.qualif-maintenue td { background: #f9f7ff !important;}
+    .classement-table tr.rel td { background: #fff0f3 !important; color: #d32f2f;}
+    .classement-table tr.rel-b td { background: #ffefef !important; color: #b71c1c;}
+    .classement-table tr.promu td { background: #fffbe6 !important;}
+    .classement-table tr:hover {
+      background: #e9f3ff;
+      cursor: pointer;
+    }
+    .btn {
+      display: inline-block;
+      background: #2676e3;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 7px 17px;
+      font-size: 1em;
+      margin: 4px 0;
+      cursor: pointer;
+      transition: background .16s;
+    }
+    .btn:hover { background: #154a9b; }
+    .match-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #f6f9fe;
+      margin: 16px 0 0 0;
+      font-size: 1.04em;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .match-table th, .match-table td {
+      padding: 7px 5px;
+      text-align: center;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .match-table th { background: #e5ecfa; color: #1a253a; }
+    .match-table tr:hover { background: #e9f3ff; }
+    .match-win { color: #2ea851; font-weight: bold;}
+    .match-draw { color: #ffd700;}
+    .match-loss { color: #e85d5d;}
+
+    /* FOOT PITCH */
+    .pitch-container {
+      background: #5bb15b;
+      border-radius: 18px;
+      width: 420px;
+      height: 630px;
+      margin: 30px auto 18px auto;
+      position: relative;
+      box-shadow: 0 2px 8px #0001;
+      overflow: hidden;
+      border: 3px solid #b4d2c6;
+      transition: width 0.2s, height 0.2s;
+      box-sizing: border-box;
+      max-width: 98vw;
+      max-height: 80vw;
+    }
+    .pitch-svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+      position: absolute;
+      top: 0; left: 0;
+      z-index: 1;
+      pointer-events: none;
+    }
+    .player-dot {
+      position: absolute;
+      width: 110px;
+      min-height: 42px;
+      left: 50%;
+      top: 0;
+      transform: translate(-50%,0);
+      font-size: 1em;
+      font-weight: 600;
+      text-align: center;
+      color: #fff;
+      background: rgba(0,0,0,0.13);
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      white-space: nowrap;
+      box-sizing: border-box;
+      z-index: 2;
+      padding: 5px 2px 3px 2px;
+      border: 1.5px solid #e6e6e6;
+      text-shadow: 1px 1px 2px #0005;
+      cursor: pointer;
+      transition: background .13s;
+      overflow: visible;
+      pointer-events: auto;
+      background-clip: padding-box;
+    }
+    .player-dot:hover {
+      background: #fff8;
+      color: #196128;
+      z-index: 5;
+      border: 2px solid #0c7e0c;
+    }
+    .player-gk { background: #1f80e5 !important; color: #fff !important;}
+    .player-def { background: #2ea851 !important; color: #fff !important;}
+    .player-mid { background: #ffd700 !important; color: #222 !important;}
+    .player-att { background: #e85d5d !important; color: #fff !important;}
+    .player-name {
+      width: 100%;
+      text-align: center;
+      font-weight: bold;
+      font-size: 1.07em;
+      margin-bottom: 1.5px;
+      white-space: nowrap;
+      overflow: visible;
+      line-height: 1.16em;
+    }
+    .player-label {
+      font-size: 0.93em;
+      color: #fff;
+      opacity: 0.85;
+      display: block;
+      white-space: nowrap;
+      font-weight: 400;
+      margin: 0;
+      text-shadow: none;
+      line-height: 1.08em;
+    }
+    @media (max-width: 600px) {
+      .container { padding: 10px 2px; }
+      .pitch-container { width: 99vw; min-width: 70px; height: 130vw; }
+      .classement-table, .match-table { min-width: 300px; font-size: 0.95em;}
+      .player-dot {font-size:0.85em; width:76px; min-height:28px;}
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+    <h1>Visualisateur de Saison de Football</h1>
+    <div style="text-align:center; margin-bottom:14px;">
+        <label>
+            <input type="file" id="season-json-input" accept="application/json" style="display:none;">
+            <span class="btn" id="season-json-btn">Importer JSON Saison</span>
+        </label>
+        <span id="import-status"></span>
+    </div>
+    <div id="controls" style="display:none;">
+        <div style="margin-bottom:10px;">
+            <label for="competition-select">Compétition :</label>
+            <select id="competition-select"></select>
+            <label for="country-select" style="margin-left:22px;">Onze National :</label>
+            <select id="country-select"></select>
+        </div>
+    </div>
+    <div class="row">
+        <div style="flex:2; min-width:330px;">
+            <h2 id="comp-title"></h2>
+            <div id="classement-block"></div>
+            <button class="btn" id="show-matches-btn" style="display:none;">Voir calendrier & résultats</button>
+            <div id="matches-block" style="display:none;"></div>
+        </div>
+    </div>
+    <div id="best-eleven-section" style="margin-top:35px;">
+        <h3>Meilleur Onze National</h3>
+        <div id="pitch-visual"></div>
+        <div id="eleven-list"></div>
+    </div>
+</div>
+<script>
+let saisonData = null, competList = [], bestElevens = {}, paysList = [], currentComp = null, currentCompIdx = 0, currentPays = null;
+
+document.getElementById("season-json-btn").onclick = () => document.getElementById("season-json-input").click();
+document.getElementById("season-json-input").onchange = function(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(evt) {
+    try {
+      let json = JSON.parse(evt.target.result);
+      if(json && json.competitions) {
+        saisonData = json;
+        competList = json.competitions;
+        buildUI();
+        document.getElementById("import-status").textContent = "Saison chargée.";
+      } else {
+        document.getElementById("import-status").textContent = "Format JSON de saison invalide.";
+      }
+    } catch {
+      document.getElementById("import-status").textContent = "Erreur d'import du JSON.";
+    }
+    e.target.value = "";
+  };
+  reader.readAsText(file);
+};
+
+function buildUI() {
+  document.getElementById("controls").style.display = "";
+  let compSel = document.getElementById("competition-select");
+  compSel.innerHTML = "";
+  competList.forEach((c,i)=>{
+    let opt = document.createElement("option");
+    opt.value = i; opt.textContent = `${c.nom} (${capitalize(c.forme||"")})`;
+    compSel.appendChild(opt);
+  });
+  compSel.onchange = function() {
+    currentCompIdx = parseInt(this.value,10) || 0;
+    showCompetition();
+  };
+  if (saisonData.resume && saisonData.resume.bestElevens) {
+    bestElevens = saisonData.resume.bestElevens;
+    paysList = Object.keys(bestElevens);
+  } else {
+    bestElevens = {}; paysList = [];
+  }
+  let paysSel = document.getElementById("country-select");
+  paysSel.innerHTML = "";
+  paysList.forEach(p=>{
+    let opt = document.createElement("option");
+    opt.value = p; opt.textContent = p;
+    paysSel.appendChild(opt);
+  });
+  paysSel.onchange = function() {
+    currentPays = this.value;
+    showPitch();
+  };
+  currentCompIdx = 0;
+  currentPays = paysList[0] || null;
+  compSel.value = currentCompIdx;
+  paysSel.value = currentPays;
+  showCompetition();
+  showPitch();
+}
+
+const classementRules = [
+  {
+    match: name => name.trim().toLowerCase() === "i liga",
+    lines: [
+      {pos: 1, css: "champion", emoji: "🏆", label: "Ligue PFA des Vainqueurs"},
+      {pos: 2, css: "qualif-podium", emoji: "🥈", label: "Ligue PFA des Clubs"},
+      {pos: 3, css: "qualif-podium", emoji: "🥉", label: "Ligue PFA des Clubs"},
+      {pos: 4, css: "qualif-barrage", emoji: "⚔️", label: "Barrage Ligue PFA des Clubs"},
+      {pos: 10, css: "qualif-demi-barrage", emoji: "🚨", label: "3e tour barrage I/II Liga"},
+      {pos: 11, css: "rel", emoji: "⬇️", label: "Relégation II Liga"},
+      {pos: 12, css: "rel", emoji: "⬇️", label: "Relégation II Liga"},
+    ]
+  },
+  {
+    match: name => name.trim().toLowerCase() === "ii liga",
+    lines: [
+      {pos: 1, css: "champion", emoji: "🏆", label: "Promotion I Liga"},
+      {pos: 2, css: "qualif-podium", emoji: "🥈", label: "Promotion I Liga"},
+      {pos: 3, css: "qualif-c3", emoji: "🎯", label: "2e tour barrage I/II Liga"},
+      {pos: 4, css: "qualif-barrage", emoji: "⚔️", label: "1er tour barrage I/II Liga"},
+      {pos: 5, css: "qualif-barrage", emoji: "⚔️", label: "1er tour barrage I/II Liga"},
+      {pos: 10, css: "rel", emoji: "⬇️", label: "Relégation III-A Liga"},
+      {pos: 11, css: "rel", emoji: "⬇️", label: "Relégation III-A Liga"},
+      {pos: 12, css: "rel-b", emoji: "⬇️", label: "Relégation III-B Liga"},
+    ]
+  },
+  {
+    match: name => name.trim().toLowerCase() === "iii-a liga",
+    lines: [
+      {pos: 1, css: "champion", emoji: "🏆", label: "Promotion II Liga"},
+      {pos: 2, css: "qualif-podium", emoji: "🥈", label: "Promotion II Liga"},
+      {pos: 3, css: "qualif-c3", emoji: "🥉", label: ""},
+      {pos: 7, css: "rel", emoji: "⬇️", label: "Relégation III-B Liga"},
+    ]
+  },
+  {
+    match: name => name.trim().toLowerCase() === "iii-b liga",
+    lines: [
+      {pos: 1, css: "champion", emoji: "🏆", label: "Promotion II Liga"},
+      {pos: 2, css: "qualif-podium", emoji: "🥈", label: "Promotion III-A Liga"},
+      {pos: 3, css: "qualif-c3", emoji: "🥉", label: ""},
+      {pos: 7, css: "qualif-maintenue", emoji: "🛡️", label: "Maintien sous contrôle"},
+    ]
+  },
+  {
+    match: name => name.trim().toLowerCase() === "division 1",
+    lines: [
+      {pos: 1, css: "champion", emoji: "🏆", label: "Ligue PFA des Vainqueurs"},
+      {pos: 2, css: "qualif-podium", emoji: "🥈", label: "Ligue PFA des Clubs"},
+      {pos: 3, css: "qualif-podium", emoji: "🥉", label: "Ligue PFA des Clubs"},
+      {pos: 4, css: "qualif-barrage", emoji: "⚔️", label: "Barrage Ligue PFA des Clubs"},
+      {pos: 10, css: "qualif-demi-barrage", emoji: "🚨", label: "3e tour barrage I/II Liga"},
+      {pos: 11, css: "rel", emoji: "⬇️", label: "Relégation II Liga"},
+      {pos: 12, css: "rel", emoji: "⬇️", label: "Relégation II Liga"},
+    ]
+  },
+  {
+    match: name => name.trim().toLowerCase() === "division 2",
+    lines: [
+      {pos: 1, css: "champion", emoji: "🏆", label: "Promotion I Liga"},
+      {pos: 2, css: "qualif-podium", emoji: "🥈", label: "Promotion I Liga"},
+      {pos: 3, css: "qualif-c3", emoji: "🎯", label: "2e tour barrage I/II Liga"},
+      {pos: 4, css: "qualif-barrage", emoji: "⚔️", label: "1er tour barrage I/II Liga"},
+      {pos: 5, css: "qualif-barrage", emoji: "⚔️", label: "1er tour barrage I/II Liga"},
+      {pos: 10, css: "rel", emoji: "⬇️", label: "Relégation III-A Liga"},
+      {pos: 11, css: "rel", emoji: "⬇️", label: "Relégation III-A Liga"},
+      {pos: 12, css: "rel-b", emoji: "⬇️", label: "Relégation III-B Liga"},
+    ]
+  },
+  {
+    match: name => name.trim().toLowerCase() === "ligue pfa des vainqueurs",
+    lines: [
+      {pos: 1, css: "qualif-v1", emoji: "⭐", label: "Qualifié 1/8"},
+      {pos: 2, css: "qualif-v1", emoji: "⭐", label: "Qualifié 1/8"},
+      {pos: 3, css: "qualif-v1", emoji: "⭐", label: "Qualifié 1/8"},
+      {pos: 4, css: "qualif-v1", emoji: "⭐", label: "Qualifié 1/8"},
+      {pos: 5, css: "qualif-v1", emoji: "⭐", label: "Qualifié 1/8"},
+      {pos: 6, css: "qualif-v1", emoji: "⭐", label: "Qualifié 1/8"},
+      {pos: 7, css: "qualif-v1", emoji: "⭐", label: "Qualifié 1/8"},
+      {pos: 8, css: "qualif-v1", emoji: "⭐", label: "Qualifié 1/8"},
+      {pos: 9, css: "qualif-v2", emoji: "⚔", label: "Barrage"},
+      {pos: 10, css: "qualif-v2", emoji: "⚔", label: "Barrage"},
+      {pos: 11, css: "qualif-v2", emoji: "⚔", label: "Barrage"},
+      {pos: 12, css: "qualif-v2", emoji: "⚔", label: "Barrage"},
+      {pos: 13, css: "qualif-v2", emoji: "⚔", label: "Barrage"},
+      {pos: 14, css: "qualif-v2", emoji: "⚔", label: "Barrage"},
+      {pos: 15, css: "qualif-v2", emoji: "⚔", label: "Barrage"},
+      {pos: 16, css: "qualif-v2", emoji: "⚔", label: "Barrage"},
+      {pos: 17, css: "qualif-v2", emoji: "⚔", label: "Barrage"},
+      {pos: 18, css: "qualif-v2", emoji: "⚔", label: "Barrage"},
+      {pos: 19, css: "qualif-v2", emoji: "⚔", label: "Barrage"},
+      {pos: 20, css: "qualif-v2", emoji: "⚔", label: "Barrage"},
+      {pos: 21, css: "qualif-v2", emoji: "⚔", label: "Barrage"},
+      {pos: 22, css: "qualif-v2", emoji: "⚔", label: "Barrage"},
+      {pos: 23, css: "qualif-v2", emoji: "⚔", label: "Barrage"},
+      {pos: 24, css: "qualif-v2", emoji: "⚔", label: "Barrage"},
+      {pos: 25, css: "qualif-v2", emoji: "⚔", label: "Barrage"},
+      {pos: 26, css: "qualif-v2", emoji: "⚔", label: "Barrage"},
+      {pos: 27, css: "qualif-v2", emoji: "⚔", label: "Barrage"},
+      {pos: 28, css: "qualif-v2", emoji: "⚔", label: "Barrage"},
+    ]
+  },
+  {
+  match: (comp, phase) =>
+      comp.trim().toLowerCase() === "ligue pfa des clubs" && phase && phase.trim().toLowerCase().includes("occident"),
+    lines: [
+      {pos: 1, css: "qualif-podium2", emoji: "⭐", label: "Qualifié"},
+      {pos: 2, css: "qualif-podium2", emoji: "⭐", label: "Qualifié"},
+      {pos: 3, css: "qualif-podium2", emoji: "⭐", label: "Qualifié"},
+      {pos: 4, css: "qualif-podium2", emoji: "⭐", label: "Qualifié"},
+      {pos: 5, css: "qualif-podium2", emoji: "⭐", label: "Qualifié"},
+      {pos: 6, css: "qualif-podium2", emoji: "⭐", label: "Qualifié"},
+      {pos: 7, css: "qualif-podium2", emoji: "⭐", label: "Qualifié"},
+      {pos: 8, css: "qualif-podium2", emoji: "⭐", label: "Qualifié"},
+    ]
+  },
+  {
+    match: (comp, phase) =>
+      comp.trim().toLowerCase() === "ligue pfa des clubs" && phase && phase.trim().toLowerCase().includes("central"),
+    lines: [
+      {pos: 1, css: "qualif-podium2", emoji: "⭐", label: "Qualifié"},
+      {pos: 2, css: "qualif-podium2", emoji: "⭐", label: "Qualifié"},
+      {pos: 3, css: "qualif-podium2", emoji: "⭐", label: "Qualifié"},
+      {pos: 4, css: "qualif-podium2", emoji: "⭐", label: "Qualifié"},
+      {pos: 5, css: "qualif-podium2", emoji: "⭐", label: "Qualifié"},
+      {pos: 6, css: "qualif-podium2", emoji: "⭐", label: "Qualifié"},
+      {pos: 7, css: "qualif-podium2", emoji: "⭐", label: "Qualifié"},
+      {pos: 8, css: "qualif-podium2", emoji: "⭐", label: "Qualifié"},
+    ]
+  },
+  {
+    match: (comp, phase) =>
+      comp.trim().toLowerCase() === "ligue pfa des clubs" && phase && phase.trim().toLowerCase().includes("sud-insulaire"),
+    lines: [
+      {pos: 1, css: "qualif-podium2", emoji: "⭐", label: "Qualifié"},
+      {pos: 2, css: "qualif-podium2", emoji: "⭐", label: "Qualifié"},
+      {pos: 3, css: "qualif-podium2", emoji: "⭐", label: "Qualifié"},
+      {pos: 4, css: "qualif-podium2", emoji: "⭐", label: "Qualifié"},
+      {pos: 5, css: "qualif-podium2", emoji: "⭐", label: "Qualifié"},
+      {pos: 6, css: "qualif-podium2", emoji: "⭐", label: "Qualifié"},
+      {pos: 7, css: "qualif-podium2", emoji: "⭐", label: "Qualifié"},
+      {pos: 8, css: "qualif-podium2", emoji: "⭐", label: "Qualifié"},
+    ]
+  },
+  {
+    match: (comp, phase) =>
+      comp.trim().toLowerCase() === "ligue pfa des clubs" && phase && phase.trim().toLowerCase().includes("orient"),
+    lines: [
+      {pos: 1, css: "qualif-podium2", emoji: "⭐", label: "Qualifié"},
+      {pos: 2, css: "qualif-podium2", emoji: "⭐", label: "Qualifié"},
+      {pos: 3, css: "qualif-podium2", emoji: "⭐", label: "Qualifié"},
+      {pos: 4, css: "qualif-podium2", emoji: "⭐", label: "Qualifié"},
+      {pos: 5, css: "qualif-podium2", emoji: "⭐", label: "Qualifié"},
+      {pos: 6, css: "qualif-podium2", emoji: "⭐", label: "Qualifié"},
+      {pos: 7, css: "qualif-podium2", emoji: "⭐", label: "Qualifié"},
+      {pos: 8, css: "qualif-podium2", emoji: "⭐", label: "Qualifié"},
+    ]
+  },
+  // PHASE CONTINENTALE
+  {
+    match: (comp, phase) =>
+      comp.trim().toLowerCase() === "ligue pfa des clubs" && phase && phase.trim().toLowerCase().includes("continentale"),
+    lines: [
+      {pos: 1, css: "qualif-podium2", emoji: "⭐", label: "Qualifié 1/8"},
+      {pos: 2, css: "qualif-podium2", emoji: "⭐", label: "Qualifié 1/8"},
+      {pos: 3, css: "qualif-podium2", emoji: "⭐", label: "Qualifié 1/8"},
+      {pos: 4, css: "qualif-podium2", emoji: "⭐", label: "Qualifié 1/8"},
+      {pos: 5, css: "qualif-podium2", emoji: "⭐", label: "Qualifié 1/8"},
+      {pos: 6, css: "qualif-podium2", emoji: "⭐", label: "Qualifié 1/8"},
+      {pos: 7, css: "qualif-podium2", emoji: "⭐", label: "Qualifié 1/8"},
+      {pos: 8, css: "qualif-podium2", emoji: "⭐", label: "Qualifié 1/8"},
+      {pos: 9, css: "qualif-podium2", emoji: "⭐", label: "Qualifié 1/8"},
+      {pos: 10, css: "qualif-podium2", emoji: "⭐", label: "Qualifié 1/8"},
+      {pos: 11, css: "qualif-podium2", emoji: "⭐", label: "Qualifié 1/8"},
+      {pos: 12, css: "qualif-podium2", emoji: "⭐", label: "Qualifié 1/8"},
+      {pos: 13, css: "qualif-podium1", emoji: "⚔", label: "Barrage"},
+      {pos: 14, css: "qualif-podium1", emoji: "⚔", label: "Barrage"},
+      {pos: 15, css: "qualif-podium1", emoji: "⚔", label: "Barrage"},
+      {pos: 16, css: "qualif-podium1", emoji: "⚔", label: "Barrage"},
+      {pos: 17, css: "qualif-podium1", emoji: "⚔", label: "Barrage"},
+      {pos: 18, css: "qualif-podium1", emoji: "⚔", label: "Barrage"},
+      {pos: 19, css: "qualif-podium1", emoji: "⚔", label: "Barrage"},
+      {pos: 20, css: "qualif-podium1", emoji: "⚔", label: "Barrage"},
+      {pos: 21, css: "qualif-podium1", emoji: "⚔", label: "Barrage"},
+      {pos: 22, css: "qualif-podium1", emoji: "⚔", label: "Barrage"},
+      {pos: 23, css: "qualif-podium1", emoji: "⚔", label: "Barrage"},
+      {pos: 24, css: "qualif-podium1", emoji: "⚔", label: "Barrage"},
+      {pos: 25, css: "qualif-podium1", emoji: "⚔", label: "Barrage"},
+      {pos: 26, css: "qualif-podium1", emoji: "⚔", label: "Barrage"},
+      {pos: 27, css: "qualif-podium1", emoji: "⚔", label: "Barrage"},
+      {pos: 28, css: "qualif-podium1", emoji: "⚔", label: "Barrage"},
+    ]
+  },
+];
+
+function getClassementMeta(compName, idx, tabLen, phaseName) {
+  for (const rule of classementRules) {
+    if (rule.match(compName, phaseName)) {
+      let meta = rule.lines.find(l => l.pos === idx+1);
+      if (meta) return meta;
+    }
+  }
+  if (idx === 0) return {css: "champion", emoji: "🏆", label: "Champion"};
+  if (idx < 3) return {css: "qualif-podium", emoji: "⭐", label: "Podium"};
+  return {css: "", emoji:"", label:""};
+}
+
+function showCompetition() {
+  let c = competList[currentCompIdx];
+  currentComp = c;
+  document.getElementById("comp-title").textContent = `${c.nom} (${capitalize(c.forme||"")})`;
+
+  // Vérifie si c'est une des deux compétitions à visualisation spéciale
+  if (
+    (c.nom || "").toLowerCase().includes("vainqueur") ||
+    (c.nom || "").toLowerCase().includes("club")
+  ) {
+    showLPFACompetition(c);
+    document.getElementById("best-eleven-section").style.display = "none";
+    return;
+  } else {
+    document.getElementById("best-eleven-section").style.display = "";
+  }
+
+  // Reste de l'affichage normal
+  if (c.classement && c.classement.length) {
+    document.getElementById("classement-block").innerHTML = renderClassementTable(c.classement, c.nom);
+  } else {
+    document.getElementById("classement-block").innerHTML = '<p style="color:#aaa;text-align:center;">Aucun classement disponible.</p>';
+  }
+  const btn = document.getElementById("show-matches-btn");
+  if (c.matchs && c.matchs.length) {
+    btn.style.display = "";
+    btn.textContent = btn._open ? "Masquer calendrier & résultats" : "Voir calendrier & résultats";
+    btn.onclick = ()=>{
+      btn._open = !btn._open;
+      document.getElementById("matches-block").style.display = btn._open ? "" : "none";
+      btn.textContent = btn._open ? "Masquer calendrier & résultats" : "Voir calendrier & résultats";
+      if (btn._open) showMatches();
+    };
+  } else {
+    btn.style.display = "none";
+    document.getElementById("matches-block").style.display = "none";
+  }
+}
+
+function showLPFACompetition(comp) {
+  let html = "";
+
+  // Pour la LPFA des Vainqueurs
+  if ((comp.nom || "").toLowerCase().includes("vainqueur")) {
+    comp.phases.forEach((phase, idx) => {
+      if (phase.type.toLowerCase().includes("barrage") && phase.type.toLowerCase().includes("tour de barrage")) {
+        // Barrage d'entrée : score cumulé, détail au clic
+        html += renderKOPhaseSum(phase, "Tour de barrage");
+      }
+      else if (phase.type.toLowerCase().includes("phase de ligue")) {
+        // Classement sur 14 matchs, détails cachés
+        html += renderLigueClassementPhase(phase, comp, "Phase de ligue");
+      }
+      else if (phase.type.toLowerCase().includes("barrage à élimination directe")) {
+        html += renderKOPhaseSum(phase, "Tour de barrage à élimination directe");
+      }
+      else if (
+        phase.type.toLowerCase().includes("1/8") ||
+        phase.type.toLowerCase().includes("1/4") ||
+        phase.type.toLowerCase().includes("1/2")
+      ) {
+        html += renderKOPhaseSum(phase, phase.type);
+      }
+      else if (phase.type.toLowerCase().includes("finale")) {
+        // Finale simple : match unique
+        html += renderFinalePhase(phase);
+      }
+    });
+  }
+
+  // Pour la LPFA des Clubs
+  else if ((comp.nom || "").toLowerCase().includes("club")) {
+    comp.phases.forEach((phase, idx) => {
+      if (phase.type.toLowerCase().includes("phases régionales")) {
+        // Matchs régionaux : 4 classements régionaux
+        html += renderRegionalPhase(phase, comp);
+      }
+      else if (phase.type.toLowerCase().includes("phase continentale")) {
+        html += renderLigueClassementPhase(phase, comp, "Phase continentale");
+      }
+      else if (phase.type.toLowerCase().includes("premier tour de barrages") || phase.type.toLowerCase().includes("second tour de barrages")) {
+        html += renderKOPhaseSum(phase, phase.type);
+      }
+      else if (
+        phase.type.toLowerCase().includes("1/8") ||
+        phase.type.toLowerCase().includes("1/4") ||
+        phase.type.toLowerCase().includes("1/2")
+      ) {
+        html += renderKOPhaseSum(phase, phase.type);
+      }
+      else if (phase.type.toLowerCase().includes("finale")) {
+        html += renderFinalePhase(phase);
+      }
+    });
+  }
+  else {
+    // fallback : phases normales
+    if (Array.isArray(comp.phases)) {
+      comp.phases.forEach(phase => {
+        html += `<div style="margin: 22px 0; border: 1.5px solid #e5ecfa; border-radius: 9px; background:#fafdff;">
+          <h3 style="background:#e5ecfa;padding:7px 0 7px 0;margin:0;border-bottom:1px solid #e5ecfa;font-size:1.18em;letter-spacing:0.02em;">
+            ${phase.type || "Phase"}
+          </h3>
+          ${phase.classement && phase.classement.length ? renderClassementTable(phase.classement, comp.nom) : ""}
+          ${Array.isArray(phase.matchs) && phase.matchs.length ? renderMatchTablePhase(phase.matchs) : "<span style='color:#999;font-size:0.98em;margin-left:9px;'>Aucun match pour cette phase.</span>"}
+          </div>`;
+      });
+    } else {
+      html += "<p style='color:#aaa;text-align:center;'>Aucune phase disponible pour cette compétition.</p>";
+    }
+  }
+  document.getElementById("classement-block").innerHTML = html;
+  document.getElementById("show-matches-btn").style.display = "none";
+  document.getElementById("matches-block").style.display = "none";
+}
+
+// KO aller/retour : score cumulé, détail au clic
+function renderKOPhaseSum(phase, title) {
+  let html = `<div style="margin:22px 0; border:1.5px solid #e5ecfa; border-radius:9px; background:#fafdff;">
+  <h3 style="background:#e5ecfa;padding:7px 0;margin:0;border-bottom:1px solid #e5ecfa;font-size:1.14em;">${title||phase.type}</h3>
+  <table class="match-table"><thead><tr>
+  <th>Match</th><th>Score cumulé</th>
+  </tr></thead><tbody>`;
+  // Regroupe par paire aller/retour (même équipes, inversées)
+  let pairs = [];
+  let used = new Set();
+  for(let i=0;i<phase.matchs.length;i++) {
+    if(used.has(i)) continue;
+    let m1 = phase.matchs[i];
+    let m2idx = phase.matchs.findIndex((m,idx)=>!used.has(idx) && (
+      (m.equipeA === m1.equipeB && m.equipeB === m1.equipeA)
+    ));
+    if(m2idx>=0 && m2idx!==i) {
+      let m2 = phase.matchs[m2idx];
+      used.add(i); used.add(m2idx);
+      let scoreA = m1.scoreA + m2.scoreB;
+      let scoreB = m1.scoreB + m2.scoreA;
+      let label = `${m1.equipeA} vs ${m1.equipeB}`;
+      html += `<tr>
+        <td>${label}</td>
+        <td>
+          <span class="btn" onclick="toggleMatchDetail(this, '${escapeHtml(JSON.stringify([m1,m2]))}')">${scoreA} - ${scoreB} <span style='font-size:0.93em;font-weight:normal'>(voir détails)</span></span>
+        </td>
+      </tr>`;
+    }
+  }
+  html += "</tbody></table></div>";
+  return html;
+}
+
+function renderFinalePhase(phase) {
+  let html = `<div style="margin:22px 0; border:1.5px solid #e5ecfa; border-radius:9px; background:#fafdff;">
+    <h3 style="background:#e5ecfa;padding:7px 0;margin:0;border-bottom:1px solid #e5ecfa;font-size:1.14em;">${phase.type||"Finale"}</h3>
+    ${renderMatchTablePhase(phase.matchs)}
+    </div>`;
+  return html;
+}
+
+// Phase de ligue/continentale : classement sur ces matchs uniquement, détails cachés/affichables
+function renderLigueClassementPhase(phase, comp, title) {
+  // Liste officielle des clubs de ligue si fournie, sinon déduite
+  let clubsLigue = (phase.equipes && phase.equipes.length)
+      ? phase.equipes
+      : Array.from(new Set(phase.matchs.flatMap(m => [m.equipeA, m.equipeB])));
+  // Filtre pour ne garder QUE les clubs ayant joué au moins 1 match dans la phase de ligue
+  let clubsAyantJoue = clubsLigue.filter(nom =>
+    phase.matchs.some(m => m.equipeA === nom || m.equipeB === nom)
+  );
+  let classement = calcClassementFromMatchs(clubsAyantJoue, phase.matchs);
+
+  let btnId = "btn-details-" + Math.random().toString(36).slice(2,10);
+  let blockId = "details-" + Math.random().toString(36).slice(2,10);
+  let html = `<div style="margin:22px 0; border:1.5px solid #e5ecfa; border-radius:9px; background:#fafdff;">
+    <h3 style="background:#e5ecfa;padding:7px 0;margin:0;border-bottom:1px solid #e5ecfa;font-size:1.14em;">${title||phase.type}</h3>
+    ${renderClassementTable(classement, comp.nom, title||phase.type)}
+    <button class="btn" id="${btnId}" onclick="document.getElementById('${blockId}').style.display=document.getElementById('${blockId}').style.display==='none'?'':'none'">Afficher/Masquer détails des matchs</button>
+    <div id="${blockId}" style="display:none;">${renderMatchTablePhase(phase.matchs)}</div>
+    </div>`;
+  return html;
+}
+
+function renderRegionalPhase(phase, comp) {
+  // Table de correspondance Région → Pays
+  const REGIONS_LPFA_CLUBS = {
+    "Occident": [
+      "Borowen", "Claddagh", "Cragoith", "Karelya", "Longyearbyen", "Port Saint James",
+      "Saint-Orano", "Saphyr", "Trokadero", "Tulpstaadt"
+    ],
+    "Central": [
+      "Adolynie", "Doreste", "Edelweiss", "Laurésie", "Linys", "Luny", "Lysennie",
+      "Montverde", "Norsfallen", "Partelinie", "Rosvahina", "Valkyria"
+    ],
+    "Sud-Insulaire": [
+      "Arkadia", "Carlomania", "Coruscia", "Fortizza", "Guioti", "Hirana", "Îles Arianes", "Jaslandia",
+      "Ostaria", "Sarande"
+    ],
+    "Orient": [
+      "Abydos", "Aurore", "Barbenis", "Communautés-Unies", "Graznavia", "Hadrianie",
+      "Narois", "Novgrad", "République Constantine", "Uspana"
+    ]
+  };
+
+  // Pour chaque région, liste les équipes dont le pays appartient à cette région
+  // On suppose que le nom des clubs suit "Équipe {Pays} n°X"
+  let allEquipes = Array.from(new Set(phase.matchs.flatMap(m => [m.equipeA, m.equipeB])));
+  let equipesByRegion = {};
+  Object.entries(REGIONS_LPFA_CLUBS).forEach(([region, paysList]) => {
+    equipesByRegion[region] = allEquipes.filter(clubNom => {
+      let match = clubNom.match(/Équipe (.+) n°/i);
+      let pays = match ? match[1] : null;
+      return paysList.includes(pays);
+    });
+  });
+
+  // Génère les tableaux
+  let html = `<div style="margin:22px 0; border:1.5px solid #e5ecfa; border-radius:9px; background:#fafdff;">
+    <h3 style="background:#e5ecfa;padding:7px 0;margin:0;border-bottom:1px solid #e5ecfa;font-size:1.14em;">Phases régionales</h3>
+  `;
+
+  Object.keys(REGIONS_LPFA_CLUBS).forEach(region => {
+    let equipes = equipesByRegion[region];
+    let matchsReg = phase.matchs.filter(m =>
+      equipes.includes(m.equipeA) && equipes.includes(m.equipeB)
+    );
+    if (!equipes.length || !matchsReg.length) return; // Skip si vide
+
+    let classement = calcClassementFromMatchs(equipes, matchsReg);
+    let btnId = "btn-details-" + region.replace(/\s/g,"") + "-" + Math.random().toString(36).slice(2,8);
+    let blockId = "details-" + region.replace(/\s/g,"") + "-" + Math.random().toString(36).slice(2,8);
+    html += `<div style="margin:13px 0 19px 0;border:1px solid #d6e2f6;border-radius:8px;padding:6px 8px 8px 8px;">
+      <b style="font-size:1.07em;display:block;margin-bottom:4px;">${region}</b>
+      ${renderClassementTable(classement, comp.nom, region)}
+      <button class="btn" id="${btnId}" onclick="document.getElementById('${blockId}').style.display=document.getElementById('${blockId}').style.display==='none'?'':'none'">Afficher/Masquer détails des matchs</button>
+      <div id="${blockId}" style="display:none;">${renderMatchTablePhase(matchsReg)}</div>
+      </div>`;
+  });
+  html += "</div>";
+  return html;
+}
+
+// ------- OUTILS -------
+
+// Classement sur les matchs donnés
+function calcClassementFromMatchs(equipes, matchs) {
+  let table = {};
+  equipes.forEach(e=>table[e]={ pts:0, j:0, g:0, n:0, p:0, bp:0, bc:0, diff:0, nom:e });
+  matchs.forEach(m=>{
+    let a=table[m.equipeA], b=table[m.equipeB];
+    a.j++; b.j++;
+    a.bp+=m.scoreA; a.bc+=m.scoreB; a.diff=a.bp-a.bc;
+    b.bp+=m.scoreB; b.bc+=m.scoreA; b.diff=b.bp-b.bc;
+    if(m.scoreA>m.scoreB){ a.g++; b.p++; a.pts+=3; }
+    else if(m.scoreA<m.scoreB){ b.g++; a.p++; b.pts+=3; }
+    else{ a.n++; b.n++; a.pts+=1; b.pts+=1; }
+  });
+  let res = Object.values(table);
+  res.sort((a,b)=>b.pts-a.pts||(b.diff-a.diff)||(b.bp-a.bp));
+  return res;
+}
+
+// Pour retrouver la région d'un club fictif (à adapter selon ton mapping)
+function getRegionFromClub(clubNom) {
+  // Ex : "équipe Ostaria n°1" → "Ostaria" → mapping
+  let pays = (clubNom.match(/Équipe (.+) n°/i)||[])[1];
+  if (pays) pays = pays.trim();
+  // Adapter ce mapping à ton code
+  const REGIONS_LPFA_CLUBS = {
+    "Occident": [
+      "Borowen", "Claddagh", "Cragoith", "Karelya", "Longyearbyen", "Port Saint James",
+      "Saint-Orano", "Saphyr", "Trokadero", "Tulpstaadt"
+    ],
+    "Central": [
+      "Adolynie", "Doreste", "Edelweiss", "Laurésie", "Linys", "Luny", "Lysennie",
+      "Montverde", "Norsfallen", "Rosvahina", "Valkyria"
+    ],
+    "Sud-Insulaire": [
+      "Arkadia", "Carlomania", "Coruscia", "Fortizza", "Guioti", "Îles Arianes", "Jaslandia",
+      "Ostaria", "Partelinie", "Sarande"
+    ],
+    "Orient": [
+      "Abydos", "Aurore", "Barbenis", "Communautés-Unies", "Graznavia", "Hadrianie", "Hirana",
+      "Narois", "Novgrad", "République Constantine", "Uspana"
+    ]
+  };
+  for (let reg in REGIONS_LPFA_CLUBS) {
+    if (REGIONS_LPFA_CLUBS[reg].includes(pays)) return reg;
+  }
+  return "Inconnu";
+}
+
+// Table de tous les matchs d'une phase
+function renderMatchTablePhase(matchs) {
+  let html = `<table class="match-table"><thead><tr>
+    <th>Date/Journée</th><th>Équipe A</th><th></th><th>Équipe B</th>
+  </tr></thead><tbody>`;
+  matchs.forEach((m,idx)=>{
+    let css = "";
+    if (m.scoreA > m.scoreB) css = "match-win";
+    if (m.scoreA < m.scoreB) css = "match-loss";
+    if (m.scoreA === m.scoreB) css = "match-draw";
+    let jour = m.journee!==undefined ? `J${m.journee}` : (m.date||"-");
+    html += `<tr>
+      <td>${jour}</td>
+      <td>${m.equipeA}</td>
+      <td class="${css}">${m.scoreA} - ${m.scoreB}</td>
+      <td>${m.equipeB}</td>
+    </tr>`;
+  });
+  html += "</tbody></table>";
+  return html;
+}
+
+function renderClassementTable(tab, compName, phaseName) {
+  let n = tab.length;
+  let html = `<table class="classement-table"><thead><tr>
+    <th>#</th><th>Équipe</th><th>Pts</th><th>J</th><th>G</th><th>N</th><th>P</th><th>BP</th><th>BC</th><th>Diff</th><th>Indication</th>
+  </tr></thead><tbody>`;
+  tab.forEach((e,i)=>{
+    let {css, emoji, label} = getClassementMeta(compName, i, n, phaseName);
+    html += `<tr class="${css}"><td>${i+1} ${emoji}</td><td>${e.nom}</td><td>${e.pts}</td><td>${e.j}</td><td>${e.g}</td><td>${e.n}</td><td>${e.p}</td><td>${e.bp}</td><td>${e.bc}</td><td>${e.diff}</td><td>${label}</td></tr>`;
+  });
+  html += "</tbody></table>";
+  const hideLegend =
+    typeof compName === "string" &&
+    (
+      compName.toLowerCase().includes("pfa des vainqueurs")
+      || compName.toLowerCase().includes("pfa des clubs")
+    );
+  if (!hideLegend) {
+    html += `<p style="font-size:0.98em;color:#2676e3;">🏆 Champion · 🥈/🥉 Podium · ⚔️ Barrage · 🎯 Tour barrage · ⬇️ Relégation · 🛡️ Maintien</p>`;
+  }
+  return html;
+}
+
+function showMatches() {
+  let c = competList[currentCompIdx];
+  let matchs = c.matchs || [];
+  let html = `<table class="match-table"><thead><tr>
+    <th>Date/Journée</th><th>Équipe A</th><th></th><th>Équipe B</th>
+  </tr></thead><tbody>`;
+  matchs.forEach((m,idx)=>{
+    let css = "";
+    if (m.scoreA > m.scoreB) css = "match-win";
+    if (m.scoreA < m.scoreB) css = "match-loss";
+    if (m.scoreA === m.scoreB) css = "match-draw";
+    let jour = m.journee!==undefined ? `J${m.journee}` : (m.date||"-");
+    html += `<tr>
+      <td>${jour}</td>
+      <td>${m.equipeA}</td>
+      <td class="${css}">${m.scoreA} - ${m.scoreB}</td>
+      <td>${m.equipeB}</td>
+    </tr>`;
+  });
+  html += "</tbody></table>";
+  document.getElementById("matches-block").innerHTML = html;
+}
+
+function showPitch() {
+  let pays = currentPays;
+  let eleven = (bestElevens[pays]||[]).slice();
+  document.getElementById("eleven-list").innerHTML = "";
+  if (!pays || !eleven.length) {
+    document.getElementById("pitch-visual").innerHTML = "<p style='color:#bbb;text-align:center;'>Aucun onze trouvé.</p>";
+    return;
+  }
+  // 4-3-3 proportions terrain compactes
+  let gk = eleven.filter(j=>posteType(j.poste)==="Gardien");
+  let def = eleven.filter(j=>posteType(j.poste)==="Défenseur");
+  let mid = eleven.filter(j=>posteType(j.poste)==="Milieu");
+  let att = eleven.filter(j=>posteType(j.poste)==="Attaquant");
+  let placement = [
+    ...gk, ...def, ...mid, ...att
+  ];
+  // Coords terrain 420x630 (gardien bas)
+  let coords = [
+    {x:210, y:570}, // GK
+    {x:60, y:410}, {x:130, y:355}, {x:290, y:355}, {x:360, y:410}, // 4 DEF
+    {x:110, y:240}, {x:210, y:200}, {x:310, y:240}, // 3 MIL
+    {x:100, y:80}, {x:210, y:40}, {x:320, y:80} // 3 ATT
+  ];
+  let html = `<div class="pitch-container" style="position:relative;">
+    <svg class="pitch-svg" viewBox="0 0 420 630">
+      <rect x="0" y="0" width="420" height="630" fill="#5bb15b"/>
+      <rect x="0" y="0" width="420" height="630" fill="url(#gazon)" opacity="0.29"/>
+      <defs>
+        <pattern id="gazon" width="30" height="30" patternUnits="userSpaceOnUse">
+          <rect x="0" y="0" width="30" height="15" fill="#6dc86d"/>
+          <rect x="0" y="15" width="30" height="15" fill="#5bb15b"/>
+        </pattern>
+      </defs>
+      <rect x="8" y="8" width="404" height="614" fill="none" stroke="#fff" stroke-width="3"/>
+      <rect x="115" y="8" width="190" height="40" fill="none" stroke="#fff" stroke-width="2"/>
+      <rect x="115" y="582" width="190" height="40" fill="none" stroke="#fff" stroke-width="2"/>
+      <circle cx="210" cy="315" r="55" fill="none" stroke="#fff" stroke-width="2"/>
+      <circle cx="210" cy="315" r="2.5" fill="#fff"/>
+      <rect x="165" y="8" width="90" height="16" fill="none" stroke="#fff" stroke-width="2"/>
+      <rect x="165" y="606" width="90" height="16" fill="none" stroke="#fff" stroke-width="2"/>
+      <circle cx="210" cy="26" r="2.5" fill="#fff"/>
+      <circle cx="210" cy="604" r="2.5" fill="#fff"/>
+    </svg>
+  `;
+  for(let i=0;i<Math.min(placement.length,coords.length);i++) {
+    let j = placement[i];
+    let px = coords[i].x, py = coords[i].y;
+    let cl = "player-dot ";
+    if(i===0) cl += "player-gk";
+    else if(i<5) cl += "player-def";
+    else if(i<8) cl += "player-mid";
+    else cl += "player-att";
+    let playerName = (j.joueur || "-").replace(/\n/g, " ").slice(0,32);
+    let clubName = (j.club || "-").replace(/\n/g, " ").slice(0,32);
+    html += `<div class="${cl}" style="left:${px}px;top:${py}px;" title="${j.joueur} (${j.poste}, ${j.club})">
+        <span class="player-name">${playerName}</span>
+        <span class="player-label">${clubName}</span>
+      </div>`;
+  }
+  html += "</div>";
+  let detail = `<table style="width:99%;margin:12px auto 0 auto;font-size:1em;">
+  <thead><tr><th>Poste</th><th>Joueur</th><th>Club</th><th>Note</th></tr></thead><tbody>`;
+  placement.forEach(j=>{
+    detail += `<tr><td>${j.poste}</td><td>${j.joueur}</td><td>${j.club||"-"}</td><td>${j.moyenne!==null && j.moyenne!==undefined ? j.moyenne.toFixed(2): "—"}</td></tr>`;
+  });
+  detail += "</tbody></table>";
+  document.getElementById("pitch-visual").innerHTML = html;
+  document.getElementById("eleven-list").innerHTML = detail;
+}
+
+function posteType(poste) {
+  poste = (poste||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+  if (poste.includes("gardien")) return "Gardien";
+  if (poste.includes("def")) return "Défenseur";
+  if (poste.includes("milieu")) return "Milieu";
+  if (poste.match(/attaq|avant|buteur|ailier|attack/)) return "Attaquant";
+  return "Autre";
+}
+function capitalize(s) { return s && s.charAt(0).toUpperCase()+s.slice(1); }
+
+window.toggleMatchDetail = function(el, matchsJson) {
+  let matchs = [];
+  try { matchs = JSON.parse(unescapeHtml(matchsJson)); } catch {}
+  if (!matchs.length) return;
+  let html = "<div style='padding:12px 6px 4px 6px;'><b>Détail des deux matchs :</b><br>";
+  matchs.forEach((m,i)=>{
+    html += `<div>${m.equipeA} ${m.scoreA} - ${m.scoreB} ${m.equipeB} (${m.journee||""})</div>`;
+  });
+  html += "</div>";
+  // Simple popup
+  let popup = document.createElement("div");
+  popup.style.position = "fixed"; popup.style.zIndex = 9999;
+  popup.style.top = "26%"; popup.style.left = "50%"; popup.style.transform = "translate(-50%,0)";
+  popup.style.background = "#fff"; popup.style.border = "2px solid #c2d7f5"; popup.style.borderRadius = "11px";
+  popup.style.padding = "14px 18px 12px 18px"; popup.style.boxShadow = "0 6px 32px #0003";
+  popup.innerHTML = html + `<div style="text-align:right;"><button class="btn" onclick="this.parentNode.parentNode.remove()">Fermer</button></div>`;
+  document.body.appendChild(popup);
+};
+function escapeHtml(txt) {
+  return txt.replace(/&/g, "&amp;").replace(/'/g, "&#39;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+function unescapeHtml(txt) {
+  return txt.replace(/&amp;/g,"&").replace(/&#39;/g,"'").replace(/&quot;/g,'"').replace(/&lt;/g,"<").replace(/&gt;/g,">");
+}
+</script>
+</body>
+</html>
