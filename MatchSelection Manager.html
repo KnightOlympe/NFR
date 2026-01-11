@@ -1,0 +1,1134 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <title>Simulateur - Sélections Nationales</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    body{font-family:sans-serif;background:#f6f7fb;color:#222;margin:0;padding:20px}
+    .container{max-width:980px;margin:20px auto;background:#fff;padding:22px;border-radius:12px;box-shadow:0 8px 30px rgba(20,30,80,.08)}
+    h1{margin-top:0;color:#24346a}
+    .controls{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+    .label-btn{background:#3c4fa0;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;font-weight:600}
+    .small{font-size:.9rem;color:#555}
+    .selects{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .selects select{padding:8px;border-radius:6px;border:1px solid #cbd6f0}
+    .match-table{width:100%;border-collapse:collapse;margin-top:12px}
+    .match-table th,.match-table td{border:1px solid #e0e6fb;padding:8px;text-align:left}
+    .button{padding:8px 12px;border-radius:6px;border:none;background:#273469;color:#fff;cursor:pointer}
+    .button.warn{background:#d23d3d}
+    .button.green{background:#2a8f6e}
+    .detail-modal{display:none;position:fixed;inset:0;background:rgba(20,30,60,0.18);z-index:99;align-items:center;justify-content:center}
+    .detail-content{background:#fff;padding:18px;border-radius:10px;max-width:720px;width:92%;max-height:86vh;overflow:auto;box-shadow:0 12px 40px rgba(20,30,60,.12)}
+    .close{float:right;font-size:1.6rem;color:#333;cursor:pointer}
+    .info{background:#f0f4ff;padding:10px;border-radius:8px;margin-bottom:8px}
+    .footer{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>Simulateur - Sélections Nationales</h1>
+
+  <div class="controls">
+    <label class="label-btn">Importer sélections JSON
+      <input id="import-teams" type="file" accept="application/json" style="display:none">
+    </label>
+    <button id="export-results" class="label-btn">Exporter résultats</button>
+    <button id="clear-all" class="label-btn" style="background:#888">Réinitialiser</button>
+  </div>
+
+  <div class="selects">
+    <div>
+      <label class="small">Sélection A</label><br>
+      <select id="selA"></select>
+    </div>
+    <div>
+      <label class="small">Sélection B</label><br>
+      <select id="selB"></select>
+    </div>
+    <div>
+      <label class="small">Pays hôte</label><br>
+      <select id="host-select"></select>
+    </div>
+    <div>
+      <label class="small">Type</label><br>
+      <select id="match-type">
+        <option value="amical">Amical</option>
+        <option value="tournoi">Tournoi round-robin</option>
+        <option value="pnc">Phoecia Nations Cup (PNC)</option>
+      </select>
+    </div>
+    <div>
+      <label class="small">Zone</label><br>
+      <select id="zone-select">
+        <option value="all">Toutes</option>
+        <option value="cathesia">Cathésie</option>
+        <option value="idylenia">Idylénie</option>
+        <option value="irenia">Irénie</option>
+        <option value="new-world">Nouveau Monde</option>
+        <option value="phoecia">Phoécie</option>
+      </select>
+    </div>
+    <div style="align-self:end">
+      <button id="simulate-match" class="button">Simuler match</button>
+      <button id="generate-tournament" class="button" style="margin-left:6px">Générer tournoi</button>
+      <button id="generate-cnc" class="button green" style="margin-left:6px">Générer CNC</button>
+      <button id="generate-inc" class="button green" style="margin-left:6px">Générer INC</button>
+      <button id="generate-irnc" class="button green" style="margin-left:6px">Générer IRNC</button>
+      <button id="generate-nwnc" class="button green" style="margin-left:6px">Générer NWNC</button>
+      <button id="generate-pnc" class="button green" style="margin-left:6px">Générer PNC</button>
+      <button id="generate-nwfa" class="button green" style="margin-left:6px">Générer NWFA Nations Cup</button>
+    </div>
+  </div>
+
+  <div id="summary" class="small" style="margin-top:12px"></div>
+
+  <table id="matches-table" class="match-table">
+    <thead><tr><th>Journée</th><th>Équipe A</th><th>Score</th><th>Équipe B</th><th>Détails</th></tr></thead>
+    <tbody></tbody>
+  </table>
+
+  <div class="footer">
+    <button id="export-json" class="button">Exporter JSON</button>
+    <button id="export-converted" class="button" style="margin-left:8px">Exporter Visualisateur Saison</button>
+  </div>
+</div>
+
+<div id="detail-modal" class="detail-modal">
+  <div class="detail-content">
+    <span id="close-modal" class="close">&times;</span>
+    <div id="detail-body"></div>
+  </div>
+</div>
+
+<script>
+  // --- Données pays/moyennes (extrait simplifié) ---
+const MOYENNE_PAYS = {
+  "Abydos": 62, "Adolynie": 61, "Arkadia": 85, "Aurore": 66, "Barbenis": 68, "Borowen": 75,
+  "Carlomania": 90, "Claddagh": 62, "Communautés-Unies": 61, "Coruscia": 69, "Cragoith": 62,
+  "Doreste": 62, "Edelweiss": 86, "Fortizza": 67, "Graznavia": 65, "Guioti": 60,
+  "Hadrianie": 64, "Hirana": 80, "Îles Arianes": 69, "Jaslandia": 69, "Karelya": 65,
+  "Laurésie": 76, "Linys": 66, "Longyearbyen": 63, "Luny": 66, "Lysennie": 74,
+  "Montverde": 61, "Narois": 76, "Norsfallen": 67, "Novgrad": 73, "Ostaria": 87,
+  "Partelinie": 57, "Port Saint James": 56, "République Constantine": 72, "Rosvahina": 66,
+  "Saint-Orano": 58, "Saphyr": 70, "Sarande": 63, "Trokadero": 67, "Tulpstaadt": 82,
+  "Uspana": 70, "Valkyria": 72,
+
+  "Asnaywana du Nord": 52, "Asnaywana du Sud": 38, "Cessay": 78, "Chibourg": 29, "Dacko": 66, "Dawwfiq": 42, "Heeerdens": 44,
+  "Kilemyana": 73, "Kodera": 73, "Maïsental": 75, "Nueve Constancia": 28, "Realio": 54, "Saamraajy": 59, "Samarie": 62,
+  "Sirencêtre": 49, "Tasdaal": 35, "Tawkirina": 74, "Tigzirt": 72, "Transmaldinie": 26, "Transvallen": 72, "Valrya": 37,
+  "Xhat": 28, "Zélinée": 44, "Zompa": 52,
+
+  "Anpor": 75, "Baasmanie": 70, "Bluiyglesh": 68, "Brakha": 84, "Bukakhstan": 74, "Cazanistan": 68, "Dawla": 75, "Gyalpo": 57,
+  "Hawamahal": 67, "Hibernia": 67, "Kashanistan": 76, "Mittãy": 54, "Nirmankaya": 63, "Sansuukhin": 61, "Sunyixian": 68, "Taeyang": 65,
+
+  "Akannides": 49, "Auesu": 63, "Hautes Océanides": 55, "Hautes Océanides orientales": 38, "Îles du Soleil": 49, "Îles Kumikawa": 53,
+  "Îles Shirudo": 57, "Nofoatitoa": 59, "Nouvelle-Alécie": 64, "Océanides": 68, "Okuryoka": 36, "Sud-Thaleonie": 32, "Thaleonie": 44,
+
+  "Arkannie": 85, "Atlas": 70, "Burghaven": 64, "Fédération-Unie": 84, "Gran Lusitania": 95, "Kaiowa": 70, "Kuauhtliyeztli": 74,
+  "Nouvelle Providence": 58, "Nueva Cuenca": 87, "San Esteban": 82, "Soramenca": 75,
+
+};
+  const PAYS_LIST = Object.keys(MOYENNE_PAYS);
+
+  const ZONES = {
+      phoecia: ["Abydos","Adolynie","Arkadia","Aurore","Barbenis","Borowen","Carlomania","Claddagh","Communautés-Unies",
+      "Coruscia","Cragoith","Doreste","Edelweiss","Fortizza","Graznavia","Guioti","Hadrianie","Hirana","Îles Arianes","Jaslandia",
+      "Karelya","Laurésie","Linys","Longyearbyen","Luny","Lysennie","Montverde","Narois","Norsfallen","Novgrad",
+      "Ostaria","Partelinie","Port Saint James","République Constantine","Rosvahina","Saint-Orano","Saphyr","Sarande","Trokadero",
+      "Tulpstaadt","Uspana","Valkyria"],
+
+      cathesia: ["Anpor","Baasmanie","Bluiyglesh","Brakha","Bukakhstan","Cazanistan","Dawla","Gyalpo","Hawamahal",
+      "Hibernia","Kashanistan","Mittãy","Nirmankaya","Sansuukhin","Sunyixian","Taeyang"],
+
+      idylenia: ["Asnaywana du Nord","Asnaywana du Sud","Cessay","Chibourg","Dacko","Dawwfiq","Heeerdens","Kilemyana","Kodera",
+      "Maïsental","Nueve Constancia","Realio","Saamraajy","Samarie","Sirencêtre","Tasdaal","Tawkirina","Tigzirt","Transmaldinie",
+      "Transvallen","Valrya","Xhat","Zélinée","Zompa"],
+
+      irenia: ["Akannides","Auesu","Hautes Océanides","Hautes Océanides orientales","Îles du Soleil","Îles Kumikawa","Îles Shirudo",
+      "Nofoatitoa","Nouvelle-Alécie","Océanides","Okuryoka","Sud-Thaleonie","Thaleonie"],
+
+      "new-world": ["Arkannie","Atlas","Burghaven","Fédération-Unie","Gran Lusitania","Kaiowa","Kuauhtliyeztli","Nouvelle Providence",
+      "Nueva Cuenca","San Esteban","Soramenca"],
+
+      all: PAYS_LIST.slice()
+    };
+
+  // Utilitaires
+  function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+  function shuffleArray(a){ let b=a.slice(); for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];}return b; }
+  function poisson(lambda){ let L=Math.exp(-lambda), p=1,k=0; do{k++; p*=Math.random();}while(p>L); return k-1; }
+
+  // Simulation de match basée sur la moyenne
+  function simuleMatchFictif(eqA, eqB, label="") {
+    const moyA = (typeof eqA.moyenne==="number"?eqA.moyenne: (MOYENNE_PAYS[eqA.pays]||65)) + (Math.random()*2-1);
+    const moyB = (typeof eqB.moyenne==="number"?eqB.moyenne: (MOYENNE_PAYS[eqB.pays]||65)) + (Math.random()*2-1);
+    const diff = moyA - moyB;
+    const expA = Math.max(0.3, 1.1 + diff*0.03 + Math.random()*0.9);
+    const expB = Math.max(0.3, 1.1 - diff*0.03 + Math.random()*0.9);
+    const scoreA = poisson(expA);
+    const scoreB = poisson(expB);
+    const possessionA = Math.round(50 + diff*0.25 + (Math.random()*8-4));
+    const possessionB = 100 - possessionA;
+    const tirsA = Math.max(scoreA + Math.floor(Math.random()*7), scoreA+1);
+    const tirsB = Math.max(scoreB + Math.floor(Math.random()*7), scoreB+1);
+    const buts = [];
+    for(let i=0;i<scoreA;i++) buts.push({eq:eqA.nom, minute:Math.floor(Math.random()*90)+1, joueur:"-"});
+    for(let i=0;i<scoreB;i++) buts.push({eq:eqB.nom, minute:Math.floor(Math.random()*90)+1, joueur:"-"});
+    buts.sort((a,b)=>a.minute-b.minute);
+    const cartons = [];
+    if(Math.random()<0.6) cartons.push({eq: pick([eqA.nom, eqB.nom]), minute: Math.floor(Math.random()*90)+1, type: Math.random()>0.85 ? "Rouge":"Jaune"});
+    return {
+      equipeA: eqA.nom, equipeB: eqB.nom,
+      scoreA, scoreB,
+      buts, cartons,
+      possessionA,tirsA,tirsB, possessionB,
+      journee: label
+    };
+  }
+
+  // Gestion des équipes et matches
+  let teams = []; // tableau d'objets {nom,pays,moyenne,joueurs?}
+  let matches = [];
+
+  // DOM refs
+  const selA = document.getElementById('selA'), selB = document.getElementById('selB');
+  const hostSelect = document.getElementById('host-select');
+  const importTeams = document.getElementById('import-teams');
+  const matchesTableBody = document.querySelector('#matches-table tbody');
+  const detailModal = document.getElementById('detail-modal'), detailBody = document.getElementById('detail-body');
+  const closeModal = document.getElementById('close-modal');
+  const summaryDiv = document.getElementById('summary');
+
+  // Import JSON équipes
+  importTeams.addEventListener('change', e=>{
+    const file = e.target.files[0]; if(!file) return;
+    const r = new FileReader();
+    r.onload = evt=>{
+      try{
+        const json = JSON.parse(evt.target.result);
+        if(Array.isArray(json)){
+          teams = json.map(t=>({
+            nom: t.nom || t.pays || ("Sélection " + (t.nom||Math.random().toString(36).slice(2,5))),
+            pays: t.pays || t.nom || "Inconnu",
+            moyenne: typeof t.moyenne==="number" ? t.moyenne : (MOYENNE_PAYS[t.pays] || MOYENNE_PAYS[t.nom] || 65),
+            joueurs: t.joueurs || []
+          }));
+          updateTeamSelects();
+          alert("Sélections importées : " + teams.length);
+        } else alert("Format JSON invalide (tableau attendu).");
+      }catch(err){ alert("Erreur lecture JSON"); }
+      e.target.value="";
+    };
+    r.readAsText(file);
+  });
+
+  // Update selects (sélections A/B et hôte)
+  function updateTeamSelects(){
+    [selA, selB, hostSelect].forEach(s=>{
+      s.innerHTML = '';
+      teams.forEach(t=>{
+        const opt = document.createElement('option');
+        opt.value = t.nom;
+        opt.textContent = t.nom + " ("+t.pays+")";
+        s.appendChild(opt);
+      });
+    });
+    renderSummary();
+  }
+
+  // Render résumé rapide
+  function renderSummary(){
+    summaryDiv.innerHTML = `<b>${teams.length}</b> sélections chargées. Moyenne globale: ${Math.round((teams.reduce((a,b)=>a+(b.moyenne||0),0) / Math.max(1,teams.length))*10)/10}`;
+  }
+
+  // Simuler match unique
+  document.getElementById('simulate-match').addEventListener('click', ()=>{
+    const a = selA.value, b = selB.value;
+    if(!a || !b) { alert("Sélectionnez deux sélections."); return; }
+    if(a===b) { alert("Choisissez deux sélections différentes."); return; }
+    const eqA = teams.find(t=>t.nom===a) || {nom:a,pays:a,moyenne:MOYENNE_PAYS[a]||65};
+    const eqB = teams.find(t=>t.nom===b) || {nom:b,pays:b,moyenne:MOYENNE_PAYS[b]||65};
+    const m = simuleMatchFictif(eqA, eqB, "Amical");
+    matches.push(m);
+    renderMatches();
+  });
+
+  // Générer tournoi round-robin (toutes contre toutes) puis finale entre top2
+  document.getElementById('generate-tournament').addEventListener('click', ()=>{
+    if(teams.length < 2){ alert("Au moins 2 sélections requises."); return; }
+    // utilise toutes les sélections chargées
+    const pool = teams.slice();
+    const roundMatches = [];
+    let jour = 1;
+    for(let i=0;i<pool.length;i++){
+      for(let j=i+1;j<pool.length;j++){
+        roundMatches.push(simuleMatchFictif(pool[i], pool[j], "Phase " + jour));
+        jour++;
+      }
+    }
+    const classement = calcClassement(pool, roundMatches);
+    if(classement.length>=2){
+      const finalMatch = simuleMatchFictif(
+        teams.find(t=>t.nom===classement[0].nom) || {nom:classement[0].nom,pays:classement[0].nom,moyenne:MOYENNE_PAYS[classement[0].nom]||65},
+        teams.find(t=>t.nom===classement[1].nom) || {nom:classement[1].nom,pays:classement[1].nom,moyenne:MOYENNE_PAYS[classement[1].nom]||65},
+        "Finale"
+      );
+      matches = matches.concat(roundMatches).concat([finalMatch]);
+    } else {
+      matches = matches.concat(roundMatches);
+    }
+    renderMatches();
+  });
+
+  function renderMatches(){
+    matchesTableBody.innerHTML = '';
+    matches.forEach((m, idx)=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${m.journee||'-'}</td>
+        <td>${m.equipeA}</td>
+        <td>${m.scoreA} - ${m.scoreB}</td>
+        <td>${m.equipeB}</td>
+        <td><button class="button" data-idx="${idx}">Voir</button></td>`;
+      matchesTableBody.appendChild(tr);
+    });
+    // attach detail buttons
+    matchesTableBody.querySelectorAll('button[data-idx]').forEach(btn=>{
+      btn.onclick = ()=> showDetail(parseInt(btn.dataset.idx,10));
+    });
+    renderSummary();
+  }
+
+  function showDetail(idx){
+    const m = matches[idx];
+    if(!m) return;
+    let html = `<h3>${m.equipeA} ${m.scoreA} - ${m.scoreB} ${m.equipeB}${m.journee?` <small>(${m.journee})</small>`:""}</h3>`;
+    html += `<div class="small"><b>Possession :</b> ${m.possessionA}% - ${m.possessionB}% &nbsp; <b>Tirs :</b> ${m.tirsA} - ${m.tirsB}</div>`;
+    html += `<h4>Buts</h4><ul>`;
+    if(!m.buts || m.buts.length===0) html += `<li>Aucun</li>`; else m.buts.forEach(b=> html += `<li>${b.minute}' - ${b.eq} (${b.joueur})</li>`);
+    html += `</ul><h4>Cartons</h4><ul>`;
+    if(!m.cartons || m.cartons.length===0) html += `<li>Aucun</li>`; else m.cartons.forEach(c=> html += `<li>${c.minute}' - ${c.eq} : ${c.type}</li>`);
+    html += `</ul>`;
+    detailBody.innerHTML = html;
+    detailModal.style.display = "flex";
+  }
+  closeModal.onclick = ()=> detailModal.style.display = "none";
+  window.onclick = (ev)=> { if(ev.target === detailModal) detailModal.style.display = "none"; };
+
+  document.getElementById('export-json').addEventListener('click', ()=>{
+    if(!matches.length){ alert("Aucun match à exporter."); return; }
+    const data = { generatedAt: new Date().toISOString(), teams, matches };
+    const blob = new Blob([JSON.stringify(data,null,2)], {type:"application/json"});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'resultats_nationaux.json'; document.body.appendChild(a); a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(a.href); document.body.removeChild(a); }, 100);
+  });
+  document.getElementById('export-results').addEventListener('click', ()=>{
+    document.getElementById('export-json').click();
+  });
+  document.getElementById('clear-all').addEventListener('click', ()=>{
+    if(!confirm("Tout réinitialiser ?")) return;
+    teams=[]; matches=[]; updateTeamSelects(); renderMatches();
+  });
+
+  // Classement simplifié
+  function calcClassement(equipesList, matchsList){
+    const table = {};
+    equipesList.forEach(e=> table[e.nom] = { nom: e.nom, pts:0, j:0, g:0, n:0, p:0, bp:0, bc:0, diff:0 });
+    matchsList.forEach(m=>{
+      const a = table[m.equipeA] || (table[m.equipeA] = {nom:m.equipeA, pts:0,j:0,g:0,n:0,p:0,bp:0,bc:0,diff:0});
+      const b = table[m.equipeB] || (table[m.equipeB] = {nom:m.equipeB, pts:0,j:0,g:0,n:0,p:0,bp:0,bc:0,diff:0});
+      a.j++; b.j++;
+      a.bp += m.scoreA; a.bc += m.scoreB; a.diff = a.bp - a.bc;
+      b.bp += m.scoreB; b.bc += m.scoreA; b.diff = b.bp - b.bc;
+      if(m.scoreA > m.scoreB){ a.g++; a.pts+=3; b.p++; }
+      else if(m.scoreA < m.scoreB){ b.g++; b.pts+=3; a.p++; }
+      else { a.n++; b.n++; a.pts+=1; b.pts+=1; }
+    });
+    const res = Object.values(table).sort((x,y)=> y.pts - x.pts || y.diff - x.diff || y.bp - x.bp);
+    return res;
+  }
+
+function convertToVisualisateurFormat(teamsData, matchesData) {
+  const equipes = [...new Set(teamsData.map(t => t.nom))];
+
+  const matchs = matchesData.map(match => ({
+    journee: match.journee || "Match amical",
+    equipeDomicile: match.equipeA,
+    scoreDomicile: match.scoreA,
+    equipeExterieur: match.equipeB,
+    scoreExterieur: match.scoreB,
+    butsDomicile: match.buts?.filter(b => b.eq === match.equipeA).map(b => b.minute) || [],
+    butsExterieur: match.buts?.filter(b => b.eq === match.equipeB).map(b => b.minute) || [],
+    cartonsJaunesDomicile: (match.cartons || [])
+      .filter(c => c.eq === match.equipeA && c.type === "Jaune")
+      .map(c => c.minute),
+    cartonsRougesDomicile: (match.cartons || [])
+      .filter(c => c.eq === match.equipeA && c.type === "Rouge")
+      .map(c => c.minute),
+    cartonsJaunesExterieur: (match.cartons || [])
+      .filter(c => c.eq === match.equipeB && c.type === "Jaune")
+      .map(c => c.minute),
+    cartonsRougesExterieur: (match.cartons || [])
+      .filter(c => c.eq === match.equipeB && c.type === "Rouge")
+      .map(c => c.minute)
+  }));
+
+  return {
+    equipes: equipes,
+    matchs: matchs
+  };
+}
+
+
+  // --- Fonctions PNC / poules / barrages ---
+  // Distribue n éléments en 'groups' groupes de tailles équilibrées (diff <=1)
+  function distributePools(n, groups){
+    groups = Math.max(1, Math.min(groups, n));
+    const base = Math.floor(n / groups);
+    let rem = n - base*groups;
+    const sizes = Array.from({length: groups}, ()=>{ const s = base + (rem>0?1:0); if(rem>0) rem--; return s; });
+    return sizes.filter(s=>s>0);
+  }
+
+  // Crée les poules à partir d'une liste de noms et tailles
+  function makeGroups(list, sizes){
+    const shuffled = shuffleArray(list.slice());
+    const groups = [];
+    let idx = 0;
+    sizes.forEach((sz, gidx)=>{
+      groups.push({name: "G" + (gidx+1), teams: shuffled.slice(idx, idx+sz)});
+      idx += sz;
+    });
+    return groups;
+  }
+
+  // Calcule classement pour une liste de noms et un sous-ensemble de matchs
+  function classementPourGroup(teamNames, allMatches){
+    const teamObjs = teamNames.map(n=> ({nom:n}));
+    const groupMatches = allMatches.filter(m => teamNames.includes(m.equipeA) && teamNames.includes(m.equipeB));
+    return calcClassement(teamObjs, groupMatches);
+  }
+
+  // Sélection des meilleurs tiers/3èmes selon pts,diff,bp renvoyant sorted array
+  function rankThirds(thirds){
+    return thirds.sort((a,b)=> b.pts - a.pts || b.diff - a.diff || b.bp - a.bp);
+  }
+
+  // Génère barrages knock-out jusqu'à obtenir 'needed' gagnants
+  function runPlayoffs(candidates, needed){
+    let current = shuffleArray(candidates.slice());
+    while(current.length > needed){
+      const next = [];
+      for(let i=0;i<current.length;i+=2){
+        if(i+1>=current.length){
+          next.push(current[i]); // bye
+        } else {
+          const tA = teams.find(t=>t.nom===current[i]) || {nom:current[i], pays:current[i], moyenne:MOYENNE_PAYS[current[i]]||65};
+          const tB = teams.find(t=>t.nom===current[i+1]) || {nom:current[i+1], pays:current[i+1], moyenne:MOYENNE_PAYS[current[i+1]]||65};
+          const m = simuleMatchFictif(tA,tB,"Barrages");
+          matches.push(m);
+          next.push(m.scoreA >= m.scoreB ? m.equipeA : m.equipeB);
+        }
+      }
+      current = next;
+    }
+    return current; // length == needed
+  }
+
+  // Main: Générer PNC
+  document.getElementById('generate-pnc').addEventListener('click', ()=>{
+    if(teams.length < 4){ alert("Trop peu de sélections pour générer la PNC."); return; }
+    matches = []; // reset matches pour cette compétition
+    const hostName = hostSelect.value || teams[0].nom;
+    const host = teams.find(t=>t.nom===hostName) || {nom:hostName,pays:hostName,moyenne:MOYENNE_PAYS[hostName]||65};
+
+    // Phase éliminatoire : pool = all teams except host
+    const pool = teams.map(t=>t.nom).filter(n=> n !== host.nom);
+
+    // Pour 41 équipes: 1 groupe de 6 + 7 groupes de 5 (total 8 groupes).
+    // On adapte dynamiquement: on essaye 8 groupes si possible sinon on équilibre
+    const targetQualGroups = Math.min(8, pool.length);
+    const qualSizes = distributePools(pool.length, targetQualGroups);
+    const qualGroups = makeGroups(pool, qualSizes);
+
+    // Simuler doubles (aller/retour) dans chaque groupe
+    const qualMatches = [];
+    qualGroups.forEach((g, gi)=>{
+      const names = g.teams;
+      for(let i=0;i<names.length;i++){
+        for(let j=i+1;j<names.length;j++){
+          const tA = teams.find(t=>t.nom===names[i]) || {nom:names[i], pays:names[i], moyenne:MOYENNE_PAYS[names[i]]||65};
+          const tB = teams.find(t=>t.nom===names[j]) || {nom:names[j], pays:names[j], moyenne:MOYENNE_PAYS[names[j]]||65};
+          qualMatches.push(simuleMatchFictif(tA,tB,"Qualifs " + g.name));
+          qualMatches.push(simuleMatchFictif(tB,tA,"Qualifs " + g.name));
+        }
+      }
+    });
+    matches = matches.concat(qualMatches);
+
+    // Calcul des qualifiés par groupe
+    const groupStandings = qualGroups.map(g => ({name: g.name, table: classementPourGroup(g.teams, qualMatches)}));
+    const top2 = [];
+    const thirds = [];
+    const fourths = [];
+    groupStandings.forEach(g=> {
+      if(g.table[0]) top2.push(g.table[0].nom);
+      if(g.table[1]) top2.push(g.table[1].nom);
+      if(g.table[2]) thirds.push({nom:g.table[2].nom, pts:g.table[2].pts, diff:g.table[2].diff, bp:g.table[2].bp});
+      if(g.table[3]) fourths.push({nom:g.table[3].nom, pts:g.table[3].pts, diff:g.table[3].diff, bp:g.table[3].bp});
+    });
+
+    // Meilleurs 5 troisièmes (ou moins)
+    const sortedThirds = rankThirds(thirds);
+    const bestThirds = sortedThirds.slice(0,5).map(x=>x.nom);
+    const remainingThirds = sortedThirds.slice(5).map(x=>x.nom);
+
+    // Barrages : remainingThirds + all fourths
+    const fourthNames = fourths.map(f=>f.nom);
+    const playoffCandidates = shuffleArray(remainingThirds.concat(fourthNames));
+
+    // Calcul du nombre de places nécessaires pour atteindre 24 (host inclus)
+    const alreadyQualifiedCount = 1 + top2.length + bestThirds.length; // host + top2s + bestThirds
+    const neededFor24 = Math.max(0, 24 - alreadyQualifiedCount);
+
+    const playoffWinners = neededFor24 > 0 ? runPlayoffs(playoffCandidates, neededFor24) : [];
+
+    // Construire phase de groupes (24 équipes)
+    let groupPhaseTeams = [host.nom].concat(top2).concat(bestThirds).concat(playoffWinners);
+    // compléter si nécessaire
+    const allSelected = new Set(groupPhaseTeams);
+    for(const t of teams.map(x=>x.nom)){
+      if(groupPhaseTeams.length >= 24) break;
+      if(!allSelected.has(t)) { groupPhaseTeams.push(t); allSelected.add(t); }
+    }
+    groupPhaseTeams = groupPhaseTeams.slice(0,24);
+
+    // Simuler phase de groupes : 6 groupes de 4, un seul match entre pairs (3 matchs par équipe)
+    const phaseGroupSizes = distributePools(groupPhaseTeams.length, 6);
+    const phaseGroups = makeGroups(groupPhaseTeams, phaseGroupSizes);
+    const phaseGroupMatches = [];
+    phaseGroups.forEach((g)=>{
+      const names = g.teams;
+      for(let i=0;i<names.length;i++){
+        for(let j=i+1;j<names.length;j++){
+          const tA = teams.find(t=>t.nom===names[i]) || {nom:names[i], pays:names[i], moyenne:MOYENNE_PAYS[names[i]]||65};
+          const tB = teams.find(t=>t.nom===names[j]) || {nom:names[j], pays:names[j], moyenne:MOYENNE_PAYS[names[j]]||65};
+          phaseGroupMatches.push(simuleMatchFictif(tA,tB,"PhaseG " + g.name));
+        }
+      }
+    });
+    matches = matches.concat(phaseGroupMatches);
+
+    // Classements groupes phase
+    const pgStandings = phaseGroups.map(g=> ({name:g.name, table: classementPourGroup(g.teams, phaseGroupMatches)}));
+    const qTop2 = [];
+    const qThirds = [];
+    pgStandings.forEach(g=>{
+      if(g.table[0]) qTop2.push(g.table[0].nom);
+      if(g.table[1]) qTop2.push(g.table[1].nom);
+      if(g.table[2]) qThirds.push({nom:g.table[2].nom, pts:g.table[2].pts, diff:g.table[2].diff, bp:g.table[2].bp});
+    });
+    const best4Thirds = rankThirds(qThirds).slice(0,4).map(x=>x.nom);
+
+    // Phase finale : 16 équipes
+    let final16 = shuffleArray(qTop2.concat(best4Thirds)).slice(0,16);
+
+    function runKnockRound(list, label){
+      const next = [];
+      for(let i=0;i<list.length;i+=2){
+        const a = teams.find(t=>t.nom===list[i]) || {nom:list[i], pays:list[i], moyenne:MOYENNE_PAYS[list[i]]||65};
+        const b = teams.find(t=>t.nom===list[i+1]) || {nom:list[i+1], pays:list[i+1], moyenne:MOYENNE_PAYS[list[i+1]]||65};
+        const m = simuleMatchFictif(a,b,label);
+        matches.push(m);
+        next.push(m.scoreA >= m.scoreB ? m.equipeA : m.equipeB);
+      }
+      return next;
+    }
+
+    // Huitièmes -> Quarts -> Demi -> Finale
+    const quarter = runKnockRound(final16, "Huitièmes");
+    const semi = runKnockRound(quarter, "Quarts");
+    const fin = runKnockRound(semi, "Demi-finales");
+    const finalStage = runKnockRound(fin, "Finale");
+
+    renderMatches();
+    alert("PNC générée : phases créées (éliminatoires, barrages, phase de groupes, phase finale).");
+  });
+
+function runKnockoutPhase(teamNames, labelPrefix){
+  let current = shuffleArray(teamNames.slice());
+  const winnersPerRound = [];
+  function playRound(roundLabel){
+    const next = [];
+    for(let i=0;i<current.length;i+=2){
+      const aName = current[i], bName = current[i+1];
+      const a = teams.find(t=>t.nom===aName) || {nom:aName,pays:aName,moyenne:MOYENNE_PAYS[aName]||65};
+      const b = teams.find(t=>t.nom===bName) || {nom:bName,pays:bName,moyenne:MOYENNE_PAYS[bName]||65};
+      const m = simuleMatchFictif(a,b,roundLabel);
+      matches.push(m);
+      next.push(m.scoreA >= m.scoreB ? m.equipeA : m.equipeB);
+    }
+    current = next;
+    winnersPerRound.push({round:roundLabel, teams:current.slice()});
+  }
+  while(current.length > 1){
+    if(current.length === 16) playRound(labelPrefix + " - Huitièmes");
+    else if(current.length === 8) playRound(labelPrefix + " - Quarts");
+    else if(current.length === 4) playRound(labelPrefix + " - Demi-finales");
+    else if(current.length === 2) playRound(labelPrefix + " - Finale");
+    else playRound(labelPrefix);
+  }
+  return winnersPerRound;
+}
+
+ // Générer INC
+ document.getElementById('generate-inc').addEventListener('click', ()=>{
+  if(teams.length < 24){ alert("Il faut au moins 24 sélections pour générer l'INC."); return; }
+  matches = [];
+  const hostName = hostSelect.value || teams[0].nom;
+  const host = teams.find(t=>t.nom===hostName) || {nom:hostName,pays:hostName,moyenne:MOYENNE_PAYS[hostName]||65};
+
+  // Sélection des 24 équipes (hôte inclus)
+  let pool = teams.map(t=>t.nom);
+  if(!pool.includes(host.nom)) pool.unshift(host.nom);
+  pool = shuffleArray(pool).slice(0,24);
+  if(!pool.includes(host.nom)){ pool[0] = host.nom; }
+
+  // 6 groupes de 4
+  const groupSizes = [4,4,4,4,4,4];
+  const groups = makeGroups(pool, groupSizes);
+
+  const groupMatches = [];
+  groups.forEach(g=>{
+    const names = g.teams;
+    for(let i=0;i<names.length;i++){
+      for(let j=i+1;j<names.length;j++){
+        const tA = teams.find(t=>t.nom===names[i]) || {nom:names[i],pays:names[i],moyenne:MOYENNE_PAYS[names[i]]||65};
+        const tB = teams.find(t=>t.nom===names[j]) || {nom:names[j],pays:names[j],moyenne:MOYENNE_PAYS[names[j]]||65};
+        groupMatches.push(simuleMatchFictif(tA,tB,"INC - Groupes " + g.name));
+      }
+    }
+  });
+  matches = matches.concat(groupMatches);
+
+  // Classements
+  const standings = groups.map(g=> ({name:g.name, table: classementPourGroup(g.teams, groupMatches)}));
+  const qualified = [];
+  const thirds = [];
+  standings.forEach(g=>{
+    if(g.table[0]) qualified.push(g.table[0].nom);
+    if(g.table[1]) qualified.push(g.table[1].nom);
+    if(g.table[2]) thirds.push({nom:g.table[2].nom, pts:g.table[2].pts, diff:g.table[2].diff, bp:g.table[2].bp});
+  });
+  const best4Thirds = rankThirds(thirds).slice(0,4).map(x=>x.nom);
+  const finalTeams = shuffleArray(qualified.concat(best4Thirds)).slice(0,16);
+
+  // Phase finale
+  runKnockoutPhase(finalTeams,"INC");
+
+  renderMatches();
+  alert("INC générée : phase de groupes (6x4) et phase finale (16 équipes).");
+});
+
+// Générer IRNC
+document.getElementById('generate-irnc').addEventListener('click', ()=>{
+  if(teams.length < 13){
+    alert("Il faut au moins 13 sélections pour générer l'IrNC.");
+    return;
+  }
+
+  matches = [];
+  const hostName = hostSelect.value || teams[0].nom;
+  const host = teams.find(t=>t.nom===hostName)
+            || {nom:hostName,pays:hostName,moyenne:MOYENNE_PAYS[hostName]||65};
+
+  let pool = teams.map(t=>t.nom);
+  if(!pool.includes(host.nom)) pool.unshift(host.nom);
+  pool = shuffleArray(pool).slice(0,13);
+  if(!pool.includes(host.nom)){
+    pool[0] = host.nom;
+  }
+
+  // Répartition : 3 groupes de 3 et 1 groupe de 4
+  const groupA = pool.slice(0,3);
+  const groupB = pool.slice(3,6);
+  const groupC = pool.slice(6,9);
+  const groupD = pool.slice(9,13); // 4 équipes
+
+  const groups = [
+    {name:"A", teams: groupA},
+    {name:"B", teams: groupB},
+    {name:"C", teams: groupC},
+    {name:"D", teams: groupD}
+  ];
+
+  // Phase de groupes : aller‑retour dans chaque groupe
+  const groupMatches = [];
+  groups.forEach(g=>{
+    const names = g.teams;
+    for(let i=0;i<names.length;i++){
+      for(let j=i+1;j<names.length;j++){
+        const tA = teams.find(t=>t.nom===names[i])
+                || {nom:names[i],pays:names[i],moyenne:MOYENNE_PAYS[names[i]]||65};
+        const tB = teams.find(t=>t.nom===names[j])
+                || {nom:names[j],pays:names[j],moyenne:MOYENNE_PAYS[names[j]]||65};
+        groupMatches.push(simuleMatchFictif(tA,tB,"IrNC - Groupes " + g.name));
+        groupMatches.push(simuleMatchFictif(tB,tA,"IrNC - Groupes " + g.name));
+      }
+    }
+  });
+  matches = matches.concat(groupMatches);
+
+  const standings = groups.map(g=> ({
+    name: g.name,
+    table: classementPourGroup(g.teams, groupMatches)
+  }));
+
+  const finalists = [];
+  standings.forEach(g=>{
+    if(g.table[0]) finalists.push(g.table[0].nom);
+    if(g.table[1]) finalists.push(g.table[1].nom);
+  });
+
+  const final8 = shuffleArray(finalists).slice(0,8);
+
+  runKnockoutPhase(final8,"IRNC");
+
+  renderMatches();
+  alert("IrNC générée : groupes (3x3 + 1x4 en A/R) et phase finale (8 équipes).");
+});
+
+// Générer NWNC
+document.getElementById('generate-nwnc').addEventListener('click', ()=>{
+  if(teams.length < 11){ alert("Il faut au moins 11 sélections pour générer la NWNC."); return; }
+  matches = [];
+  const hostName = hostSelect.value || teams[0].nom;
+  const host = teams.find(t=>t.nom===hostName) || {nom:hostName,pays:hostName,moyenne:MOYENNE_PAYS[hostName]||65};
+
+  let pool = teams.map(t=>t.nom);
+  if(!pool.includes(host.nom)) pool.unshift(host.nom);
+  pool = shuffleArray(pool);
+  const groupA = pool.slice(0,3);
+  const groupB = pool.slice(3,7);
+  const groupC = pool.slice(7,11);
+
+  const groups = [
+    {name:"A", teams: groupA}, // 3
+    {name:"B", teams: groupB}, // 4
+    {name:"C", teams: groupC}  // 4
+  ];
+
+  const groupMatches = [];
+  groups.forEach(g=>{
+    const names = g.teams;
+    for(let i=0;i<names.length;i++){
+      for(let j=i+1;j<names.length;j++){
+        const tA = teams.find(t=>t.nom===names[i]) || {nom:names[i],pays:names[i],moyenne:MOYENNE_PAYS[names[i]]||65};
+        const tB = teams.find(t=>t.nom===names[j]) || {nom:names[j],pays:names[j],moyenne:MOYENNE_PAYS[names[j]]||65};
+        groupMatches.push(simuleMatchFictif(tA,tB,"NWNC - Groupes " + g.name));
+        groupMatches.push(simuleMatchFictif(tB,tA,"NWNC - Groupes " + g.name));
+      }
+    }
+  });
+  matches = matches.concat(groupMatches);
+
+  const standings = groups.map(g=> ({name:g.name, table: classementPourGroup(g.teams, groupMatches)}));
+  const qualified = [];
+  const thirdsB = [];
+  const thirdsC = [];
+
+  standings.forEach(g=>{
+    if(g.table[0]) qualified.push(g.table[0].nom);
+    if(g.table[1]) qualified.push(g.table[1].nom);
+    if(g.name === "B" && g.table[2]) thirdsB.push({nom:g.table[2].nom, pts:g.table[2].pts, diff:g.table[2].diff, bp:g.table[2].bp});
+    if(g.name === "C" && g.table[2]) thirdsC.push({nom:g.table[2].nom, pts:g.table[2].pts, diff:g.table[2].diff, bp:g.table[2].bp});
+  });
+
+  const thirdCandidates = rankThirds(thirdsB.concat(thirdsC)).map(x=>x.nom);
+  const finalTeams = qualified.concat(thirdCandidates).slice(0,8);
+
+  runKnockoutPhase(finalTeams,"NWNC");
+
+  renderMatches();
+  alert("NWNC générée : groupes (1x3 + 2x4 en A/R) et phase finale (8 équipes).");
+});
+
+// Générer CNC
+document.getElementById('generate-cnc').addEventListener('click', ()=>{
+  if(teams.length < 16){ alert("Il faut au moins 16 sélections pour générer la CNC."); return; }
+  matches = [];
+  const hostName = hostSelect.value || teams[0].nom;
+  const host = teams.find(t=>t.nom===hostName) || {nom:hostName,pays:hostName,moyenne:MOYENNE_PAYS[hostName]||65};
+
+  let pool = teams.map(t=>t.nom);
+  if(!pool.includes(host.nom)) pool.unshift(host.nom);
+  pool = shuffleArray(pool).slice(0,16);
+  if(!pool.includes(host.nom)){ pool[0] = host.nom; }
+
+  const groupSizes = [4,4,4,4];
+  const groups = makeGroups(pool, groupSizes);
+
+  const groupMatches = [];
+  groups.forEach(g=>{
+    const names = g.teams;
+    for(let i=0;i<names.length;i++){
+      for(let j=i+1;j<names.length;j++){
+        const tA = teams.find(t=>t.nom===names[i]) || {nom:names[i],pays:names[i],moyenne:MOYENNE_PAYS[names[i]]||65};
+        const tB = teams.find(t=>t.nom===names[j]) || {nom:names[j],pays:names[j],moyenne:MOYENNE_PAYS[names[j]]||65};
+        groupMatches.push(simuleMatchFictif(tA,tB,"CNC - Groupes " + g.name));
+      }
+    }
+  });
+  matches = matches.concat(groupMatches);
+
+  const standings = groups.map(g=> ({name:g.name, table: classementPourGroup(g.teams, groupMatches)}));
+  const qualified = [];
+  standings.forEach(g=>{
+    if(g.table[0]) qualified.push(g.table[0].nom);
+    if(g.table[1]) qualified.push(g.table[1].nom);
+  });
+
+  runKnockoutPhase(qualified,"CNC");
+
+  renderMatches();
+  alert("CNC générée : groupes (4x4) et phase finale (8 équipes).");
+});
+
+// Générer NWFA Nations Cup
+document.getElementById('generate-nwfa').addEventListener('click', ()=>{
+  if(teams.length < 48){
+    alert("Il faut avoir toutes les sélections chargées (idéalement les 106) pour générer la NWFA Nations Cup.");
+    return;
+  }
+
+  matches = [];
+
+  const allNames = teams.map(t=>t.nom);
+
+  function filterZone(zoneList){
+    return allNames.filter(n => zoneList.includes(n));
+  }
+
+  const cathesiaTeams = shuffleArray(ZONES.cathesia.filter(n => teams.some(t => t.nom === n))).slice(0,16);
+  const idyleniaTeams = shuffleArray(ZONES.idylenia.filter(n => teams.some(t => t.nom === n))).slice(0,24);
+  const ireniaTeams = shuffleArray(ZONES.irenia.filter(n => teams.some(t => t.nom === n))).slice(0,13);
+  const newWorldTeams = shuffleArray(ZONES["new-world"].filter(n => teams.some(t => t.nom === n))).slice(0,11);
+  const phoeciaTeams = shuffleArray(ZONES.phoecia.filter(n => teams.some(t => t.nom === n))).slice(0,42);
+
+  if(cathesiaTeams.length < 16 || idyleniaTeams.length < 24 || ireniaTeams.length < 13 || newWorldTeams.length < 11 || phoeciaTeams.length < 42){
+    alert("Les sélections chargées ne couvrent pas toutes les équipes nécessaires par zone (Cathésie, Idylénie, Irénie, Nouveau Monde, Phoécie).");
+    return;
+  }
+
+  const qualifiersToGroupStage = [];
+
+
+  // 1) QUALIFICATIONS PAR ZONE
+
+  // 1.a) Cathésie : 16 → 4 groupes de 4, A/R, top2 de chaque groupe qualifiés (8 équipes)
+  (function(){
+    const pool = cathesiaTeams.slice();
+    const groupA = pool.slice(0,4);
+    const groupB = pool.slice(4,8);
+    const groupC = pool.slice(8,12);
+    const groupD = pool.slice(12,16);
+    const groups = [
+      {name:"Cath A", teams:groupA},
+      {name:"Cath B", teams:groupB},
+      {name:"Cath C", teams:groupC},
+      {name:"Cath D", teams:groupD}
+    ];
+
+    const groupMatches = [];
+    groups.forEach(g=>{
+      const names = g.teams;
+      for(let i=0;i<names.length;i++){
+        for(let j=i+1;j<names.length;j++){
+          const tA = teams.find(t=>t.nom===names[i]) || {nom:names[i],pays:names[i],moyenne:MOYENNE_PAYS[names[i]]||65};
+          const tB = teams.find(t=>t.nom===names[j]) || {nom:names[j],pays:names[j],moyenne:MOYENNE_PAYS[names[j]]||65};
+          groupMatches.push(simuleMatchFictif(tA,tB,"NWFA Qualifs Cathésie " + g.name));
+          groupMatches.push(simuleMatchFictif(tB,tA,"NWFA Qualifs Cathésie " + g.name));
+        }
+      }
+    });
+    matches = matches.concat(groupMatches);
+
+    const standings = groups.map(g=> ({name:g.name, table: classementPourGroup(g.teams, groupMatches)}));
+    standings.forEach(g=>{
+      if(g.table[0]) qualifiersToGroupStage.push(g.table[0].nom);
+      if(g.table[1]) qualifiersToGroupStage.push(g.table[1].nom);
+    });
+  })();
+
+  // 1.b) Idylénie : 24 → 6 groupes de 4 (aller-retour), top1 de chaque groupe + 2e tour entre les 2e
+  (function(){
+    const pool = idyleniaTeams.slice();
+    const groups = [];
+    for(let i=0;i<6;i++){
+      groups.push({name:"Idy " + (i+1), teams: pool.slice(i*4, i*4+4)});
+    }
+
+    const groupMatches = [];
+    groups.forEach(g=>{
+      const names = g.teams;
+      for(let i=0;i<names.length;i++){
+        for(let j=i+1;j<names.length;j++){
+          const tA = teams.find(t=>t.nom===names[i]) || {nom:names[i],pays:names[i],moyenne:MOYENNE_PAYS[names[i]]||65};
+          const tB = teams.find(t=>t.nom===names[j]) || {nom:names[j],pays:names[j],moyenne:MOYENNE_PAYS[names[j]]||65};
+          groupMatches.push(simuleMatchFictif(tA,tB,"NWFA Qualifs Idylénie " + g.name));
+          groupMatches.push(simuleMatchFictif(tB,tA,"NWFA Qualifs Idylénie " + g.name));
+        }
+      }
+    });
+    matches = matches.concat(groupMatches);
+
+    const standings = groups.map(g=> ({name:g.name, table: classementPourGroup(g.teams, groupMatches)}));
+
+    const firsts = [];
+    const seconds = [];
+    standings.forEach(g=>{
+      if(g.table[0]) firsts.push(g.table[0].nom);
+      if(g.table[1]) seconds.push({nom:g.table[1].nom, pts:g.table[1].pts, diff:g.table[1].diff, bp:g.table[1].bp});
+    });
+
+    // Les premiers de chaque groupe sont qualifiés
+    qualifiersToGroupStage.push(...firsts);
+
+    // 2e tour : les 6 deuxièmes s'affrontent en aller-retour dans une mini-ligue
+    const secondNames = seconds.map(s=>s.nom);
+    const secondMatches = [];
+    for(let i=0;i<secondNames.length;i++){
+      for(let j=i+1;j<secondNames.length;j++){
+        const tA = teams.find(t=>t.nom===secondNames[i]) || {nom:secondNames[i],pays:secondNames[i],moyenne:MOYENNE_PAYS[secondNames[i]]||65};
+        const tB = teams.find(t=>t.nom===secondNames[j]) || {nom:secondNames[j],pays:secondNames[j],moyenne:MOYENNE_PAYS[secondNames[j]]||65};
+        secondMatches.push(simuleMatchFictif(tA,tB,"NWFA Qualifs Idylénie 2e tour"));
+        secondMatches.push(simuleMatchFictif(tB,tA,"NWFA Qualifs Idylénie 2e tour"));
+      }
+    }
+    matches = matches.concat(secondMatches);
+
+    const secondTable = calcClassement(secondNames.map(n=>({nom:n})), secondMatches);
+    const best4Seconds = secondTable.slice(0,4).map(x=>x.nom);
+    qualifiersToGroupStage.push(...best4Seconds);
+  })();
+
+  // 1.c) Irénie : 13 → 3 groupes de 3 + 1 groupe de 4, A/R, seul le 1er de chaque groupe se qualifie
+  (function(){
+    const pool = ireniaTeams.slice();
+    const groupA = pool.slice(0,3);
+    const groupB = pool.slice(3,6);
+    const groupC = pool.slice(6,9);
+    const groupD = pool.slice(9,13);
+    const groups = [
+      {name:"Irénie A", teams: groupA},
+      {name:"Irénie B", teams: groupB},
+      {name:"Irénie C", teams: groupC},
+      {name:"Irénie D", teams: groupD}
+    ];
+
+    const groupMatches = [];
+    groups.forEach(g=>{
+      const names = g.teams;
+      for(let i=0;i<names.length;i++){
+        for(let j=i+1;j<names.length;j++){
+          const tA = teams.find(t=>t.nom===names[i]) || {nom:names[i],pays:names[i],moyenne:MOYENNE_PAYS[names[i]]||65};
+          const tB = teams.find(t=>t.nom===names[j]) || {nom:names[j],pays:names[j],moyenne:MOYENNE_PAYS[names[j]]||65};
+          groupMatches.push(simuleMatchFictif(tA,tB,"NWFA Qualifs Irénie " + g.name));
+          groupMatches.push(simuleMatchFictif(tB,tA,"NWFA Qualifs Irénie " + g.name));
+        }
+      }
+    });
+    matches = matches.concat(groupMatches);
+
+    const standings = groups.map(g=> ({name:g.name, table: classementPourGroup(g.teams, groupMatches)}));
+    standings.forEach(g=>{
+      if(g.table[0]) qualifiersToGroupStage.push(g.table[0].nom);
+    });
+  })();
+
+  // 1.d) Nouveau Monde : 11 → 1 groupe de 3 + 2 groupes de 4, A/R,
+  //      meilleurs de chaque groupe + 2èmes des groupes de 4
+  (function(){
+    const pool = newWorldTeams.slice();
+    const groupA = pool.slice(0,3);
+    const groupB = pool.slice(3,7);
+    const groupC = pool.slice(7,11);
+    const groups = [
+      {name:"NM A", teams: groupA},
+      {name:"NM B", teams: groupB},
+      {name:"NM C", teams: groupC}
+    ];
+
+    const groupMatches = [];
+    groups.forEach(g=>{
+      const names = g.teams;
+      for(let i=0;i<names.length;i++){
+        for(let j=i+1;j<names.length;j++){
+          const tA = teams.find(t=>t.nom===names[i]) || {nom:names[i],pays:names[i],moyenne:MOYENNE_PAYS[names[i]]||65};
+          const tB = teams.find(t=>t.nom===names[j]) || {nom:names[j],pays:names[j],moyenne:MOYENNE_PAYS[names[j]]||65};
+          groupMatches.push(simuleMatchFictif(tA,tB,"NWFA Qualifs Nouveau Monde " + g.name));
+          groupMatches.push(simuleMatchFictif(tB,tA,"NWFA Qualifs Nouveau Monde " + g.name));
+        }
+      }
+    });
+    matches = matches.concat(groupMatches);
+
+    const standings = groups.map(g=> ({name:g.name, table: classementPourGroup(g.teams, groupMatches)}));
+
+    const secondsCandidates = [];
+    standings.forEach(g=>{
+      if(g.table[0]) qualifiersToGroupStage.push(g.table[0].nom);
+      if(g.name !== "NM A" && g.table[1]) secondsCandidates.push({
+        nom: g.table[1].nom,
+        pts: g.table[1].pts,
+        diff: g.table[1].diff,
+        bp: g.table[1].bp
+      });
+    });
+
+    const rankedSeconds = rankThirds(secondsCandidates); // même tri pts/diff/bp
+    const best2Seconds = rankedSeconds.slice(0,2).map(x=>x.nom);
+    qualifiersToGroupStage.push(...best2Seconds);
+  })();
+
+  // 1.e) Phoécie : 42 → 7 groupes de 6, A/R, top3 de chaque groupe (21 équipes)
+  (function(){
+    const pool = phoeciaTeams.slice();
+    const groups = [];
+    for(let i=0;i<7;i++){
+      groups.push({name:"Phoé " + (i+1), teams: pool.slice(i*6, i*6+6)});
+    }
+
+    const groupMatches = [];
+    groups.forEach(g=>{
+      const names = g.teams;
+      for(let i=0;i<names.length;i++){
+        for(let j=i+1;j<names.length;j++){
+          const tA = teams.find(t=>t.nom===names[i]) || {nom:names[i],pays:names[i],moyenne:MOYENNE_PAYS[names[i]]||65};
+          const tB = teams.find(t=>t.nom===names[j]) || {nom:names[j],pays:names[j],moyenne:MOYENNE_PAYS[names[j]]||65};
+          groupMatches.push(simuleMatchFictif(tA,tB,"NWFA Qualifs Phoécie " + g.name));
+          groupMatches.push(simuleMatchFictif(tB,tA,"NWFA Qualifs Phoécie " + g.name));
+        }
+      }
+    });
+    matches = matches.concat(groupMatches);
+
+    const standings = groups.map(g=> ({name:g.name, table: classementPourGroup(g.teams, groupMatches)}));
+    standings.forEach(g=>{
+      if(g.table[0]) qualifiersToGroupStage.push(g.table[0].nom);
+      if(g.table[1]) qualifiersToGroupStage.push(g.table[1].nom);
+      if(g.table[2]) qualifiersToGroupStage.push(g.table[2].nom);
+    });
+  })();
+
+  // À ce stade, qualifiersToGroupStage doit contenir exactement 48 équipes
+  let groupStageTeams = shuffleArray(qualifiersToGroupStage.slice());
+  if(groupStageTeams.length > 48) groupStageTeams = groupStageTeams.slice(0,48);
+
+
+  // 2) PHASE DE GROUPES (48 équipes, 12 groupes de 4, aller simple)
+
+  const groupStageGroups = [];
+  for(let i=0;i<12;i++){
+    groupStageGroups.push({
+      name: "NWFA G" + (i+1),
+      teams: groupStageTeams.slice(i*4, i*4+4)
+    });
+  }
+
+  const groupStageMatches = [];
+  groupStageGroups.forEach(g=>{
+    const names = g.teams;
+    for(let i=0;i<names.length;i++){
+      for(let j=i+1;j<names.length;j++){
+        const tA = teams.find(t=>t.nom===names[i]) || {nom:names[i],pays:names[i],moyenne:MOYENNE_PAYS[names[i]]||65};
+        const tB = teams.find(t=>t.nom===names[j]) || {nom:names[j],pays:names[j],moyenne:MOYENNE_PAYS[names[j]]||65};
+        groupStageMatches.push(simuleMatchFictif(tA,tB,"NWFA Phase de groupes " + g.name));
+      }
+    }
+  });
+  matches = matches.concat(groupStageMatches);
+
+  const groupStageStandings = groupStageGroups.map(g=> ({
+    name: g.name,
+    table: classementPourGroup(g.teams, groupStageMatches)
+  }));
+
+  const qualifiedDirect = [];
+  const thirds = [];
+  groupStageStandings.forEach(g=>{
+    if(g.table[0]) qualifiedDirect.push(g.table[0].nom);
+    if(g.table[1]) qualifiedDirect.push(g.table[1].nom);
+    if(g.table[2]) thirds.push({
+      nom: g.table[2].nom,
+      pts: g.table[2].pts,
+      diff: g.table[2].diff,
+      bp: g.table[2].bp
+    });
+  });
+
+  const bestThirds = rankThirds(thirds).slice(0,8).map(x=>x.nom);
+
+  const final32 = shuffleArray(qualifiedDirect.concat(bestThirds)).slice(0,32);
+
+
+  // 3) PHASE FINALE (32 équipes)
+
+  runKnockoutPhase(final32,"NWFC Nations Cup");
+
+  renderMatches();
+  alert("NWFA Nations Cup générée : qualifications, phase de groupes (48 équipes) et phase finale (32 équipes).");
+});
+
+  (function initDefaults(){
+    const zoneEl = document.getElementById('zone-select');
+
+    function applyZone(zone){
+      const list = ZONES[zone] || ZONES['all'];
+      const limit = Math.min(106, list.length);
+      const source = (zone === 'all') ? list.slice(0, limit) : list;
+      teams = source.map(n => ({ nom: n, pays: n, moyenne: MOYENNE_PAYS[n] || 65 }));
+      if (typeof updateTeamSelects === 'function') updateTeamSelects();
+    }
+
+    if(zoneEl){
+      zoneEl.addEventListener('change', ()=> applyZone(zoneEl.value));
+      if(!teams || teams.length === 0) {
+        zoneEl.value = zoneEl.value || 'all';
+        applyZone(zoneEl.value);
+      }
+    } else {
+      if(!teams || teams.length === 0) applyZone('all');
+    }
+  })();
+
+document.getElementById('export-converted').addEventListener('click', ()=>{
+  if(!matches.length){
+    alert("Aucun match à exporter.");
+    return;
+  }
+
+  const convertedData = convertToVisualisateurFormat(teams, matches);
+
+  try {
+    JSON.stringify(convertedData);
+  } catch(e) {
+    alert("Erreur de format JSON : " + e.message);
+    return;
+  }
+
+  const blob = new Blob([JSON.stringify(convertedData, null, 2)], {type:"application/json"});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'saison_visualisateur.json';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(()=>{
+    URL.revokeObjectURL(a.href);
+    document.body.removeChild(a);
+  }, 100);
+});
+
+</script>
+</body>
+</html>
